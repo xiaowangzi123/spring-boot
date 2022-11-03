@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,9 @@
 
 package org.springframework.boot.test.autoconfigure.web.servlet.mockmvc;
 
+import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.platform.engine.discovery.DiscoverySelectors;
 import org.junit.platform.launcher.Launcher;
@@ -44,18 +46,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * @author Andy Wilkinson
  */
 @ExtendWith(OutputCaptureExtension.class)
+@TestMethodOrder(MethodOrderer.MethodName.class)
 class WebMvcTestPrintDefaultIntegrationTests {
 
 	@Test
-	void shouldNotPrint(CapturedOutput capturedOutput) {
+	void shouldNotPrint(CapturedOutput output) {
 		executeTests(ShouldNotPrint.class);
-		assertThat(capturedOutput).doesNotContain("HTTP Method");
+		assertThat(output).doesNotContain("HTTP Method");
 	}
 
 	@Test
-	void shouldPrint(CapturedOutput capturedOutput) {
+	void shouldPrint(CapturedOutput output) {
 		executeTests(ShouldPrint.class);
-		assertThat(capturedOutput).contains("HTTP Method");
+		assertThat(output).containsOnlyOnce("HTTP Method");
 	}
 
 	private void executeTests(Class<?> testClass) {

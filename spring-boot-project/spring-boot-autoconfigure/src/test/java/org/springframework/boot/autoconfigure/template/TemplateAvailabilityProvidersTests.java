@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,9 @@ import java.util.Collections;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.io.ResourceLoader;
@@ -31,15 +32,16 @@ import org.springframework.mock.env.MockEnvironment;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 
 /**
  * Tests for {@link TemplateAvailabilityProviders}.
  *
  * @author Phillip Webb
  */
+@ExtendWith(MockitoExtension.class)
 class TemplateAvailabilityProvidersTests {
 
 	private TemplateAvailabilityProviders providers;
@@ -58,7 +60,6 @@ class TemplateAvailabilityProvidersTests {
 
 	@BeforeEach
 	void setup() {
-		MockitoAnnotations.initMocks(this);
 		this.providers = new TemplateAvailabilityProviders(Collections.singleton(this.provider));
 	}
 
@@ -75,7 +76,7 @@ class TemplateAvailabilityProvidersTests {
 		given(applicationContext.getClassLoader()).willReturn(this.classLoader);
 		TemplateAvailabilityProviders providers = new TemplateAvailabilityProviders(applicationContext);
 		assertThat(providers.getProviders()).isNotEmpty();
-		verify(applicationContext).getClassLoader();
+		then(applicationContext).should().getClassLoader();
 	}
 
 	@Test
@@ -144,7 +145,8 @@ class TemplateAvailabilityProvidersTests {
 		TemplateAvailabilityProvider found = this.providers.getProvider(this.view, this.environment, this.classLoader,
 				this.resourceLoader);
 		assertThat(found).isNull();
-		verify(this.provider).isTemplateAvailable(this.view, this.environment, this.classLoader, this.resourceLoader);
+		then(this.provider).should().isTemplateAvailable(this.view, this.environment, this.classLoader,
+				this.resourceLoader);
 	}
 
 	@Test
@@ -163,7 +165,7 @@ class TemplateAvailabilityProvidersTests {
 				.willReturn(true);
 		this.providers.getProvider(this.view, this.environment, this.classLoader, this.resourceLoader);
 		this.providers.getProvider(this.view, this.environment, this.classLoader, this.resourceLoader);
-		verify(this.provider, times(1)).isTemplateAvailable(this.view, this.environment, this.classLoader,
+		then(this.provider).should().isTemplateAvailable(this.view, this.environment, this.classLoader,
 				this.resourceLoader);
 	}
 
@@ -171,7 +173,7 @@ class TemplateAvailabilityProvidersTests {
 	void getProviderShouldCacheNoMatchResult() {
 		this.providers.getProvider(this.view, this.environment, this.classLoader, this.resourceLoader);
 		this.providers.getProvider(this.view, this.environment, this.classLoader, this.resourceLoader);
-		verify(this.provider, times(1)).isTemplateAvailable(this.view, this.environment, this.classLoader,
+		then(this.provider).should().isTemplateAvailable(this.view, this.environment, this.classLoader,
 				this.resourceLoader);
 	}
 
@@ -182,7 +184,7 @@ class TemplateAvailabilityProvidersTests {
 		this.environment.setProperty("spring.template.provider.cache", "false");
 		this.providers.getProvider(this.view, this.environment, this.classLoader, this.resourceLoader);
 		this.providers.getProvider(this.view, this.environment, this.classLoader, this.resourceLoader);
-		verify(this.provider, times(2)).isTemplateAvailable(this.view, this.environment, this.classLoader,
+		then(this.provider).should(times(2)).isTemplateAvailable(this.view, this.environment, this.classLoader,
 				this.resourceLoader);
 	}
 

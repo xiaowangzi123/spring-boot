@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,14 +22,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import javax.servlet.RequestDispatcher;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpServletResponseWrapper;
-
+import jakarta.servlet.RequestDispatcher;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponseWrapper;
 import org.apache.catalina.connector.ClientAbortException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,17 +42,17 @@ import org.springframework.mock.web.MockFilterConfig;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockRequestDispatcher;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.context.request.async.DeferredResult;
 import org.springframework.web.context.request.async.StandardServletAsyncWebRequest;
 import org.springframework.web.context.request.async.WebAsyncManager;
 import org.springframework.web.context.request.async.WebAsyncUtils;
-import org.springframework.web.util.NestedServletException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 
 /**
  * Tests for {@link ErrorPageFilter}.
@@ -125,7 +124,7 @@ class ErrorPageFilterTests {
 	}
 
 	@Test
-	void responseCommittedWhenFromClientAbortException(CapturedOutput capturedOutput) throws Exception {
+	void responseCommittedWhenFromClientAbortException(CapturedOutput output) throws Exception {
 		this.filter.addErrorPages(new ErrorPage("/error"));
 		this.response.setCommitted(true);
 		this.chain = new TestFilterChain((request, response, chain) -> {
@@ -134,7 +133,7 @@ class ErrorPageFilterTests {
 		});
 		this.filter.doFilter(this.request, this.response, this.chain);
 		assertThat(this.response.isCommitted()).isTrue();
-		assertThat(capturedOutput).doesNotContain("Cannot forward");
+		assertThat(output).doesNotContain("Cannot forward");
 	}
 
 	@Test
@@ -338,11 +337,11 @@ class ErrorPageFilterTests {
 		given(committedResponse.isCommitted()).willReturn(true);
 		given(committedResponse.getStatus()).willReturn(200);
 		this.filter.doFilter(this.request, committedResponse, this.chain);
-		verify(committedResponse, never()).flushBuffer();
+		then(committedResponse).should(never()).flushBuffer();
 	}
 
 	@Test
-	void errorMessageForRequestWithoutPathInfo(CapturedOutput capturedOutput) throws IOException, ServletException {
+	void errorMessageForRequestWithoutPathInfo(CapturedOutput output) throws IOException, ServletException {
 		this.request.setServletPath("/test");
 		this.filter.addErrorPages(new ErrorPage("/error"));
 		this.chain = new TestFilterChain((request, response, chain) -> {
@@ -350,11 +349,11 @@ class ErrorPageFilterTests {
 			throw new RuntimeException();
 		});
 		this.filter.doFilter(this.request, this.response, this.chain);
-		assertThat(capturedOutput).contains("request [/test]");
+		assertThat(output).contains("request [/test]");
 	}
 
 	@Test
-	void errorMessageForRequestWithPathInfo(CapturedOutput capturedOutput) throws IOException, ServletException {
+	void errorMessageForRequestWithPathInfo(CapturedOutput output) throws IOException, ServletException {
 		this.request.setServletPath("/test");
 		this.request.setPathInfo("/alpha");
 		this.filter.addErrorPages(new ErrorPage("/error"));
@@ -363,15 +362,15 @@ class ErrorPageFilterTests {
 			throw new RuntimeException();
 		});
 		this.filter.doFilter(this.request, this.response, this.chain);
-		assertThat(capturedOutput).contains("request [/test/alpha]");
+		assertThat(output).contains("request [/test/alpha]");
 	}
 
 	@Test
-	void nestedServletExceptionIsUnwrapped() throws Exception {
+	void servletExceptionIsUnwrapped() throws Exception {
 		this.filter.addErrorPages(new ErrorPage(RuntimeException.class, "/500"));
 		this.chain = new TestFilterChain((request, response, chain) -> {
 			chain.call();
-			throw new NestedServletException("Wrapper", new RuntimeException("BAD"));
+			throw new ServletException("Wrapper", new RuntimeException("BAD"));
 		});
 		this.filter.doFilter(this.request, this.response, this.chain);
 		assertThat(((HttpServletResponseWrapper) this.chain.getResponse()).getStatus()).isEqualTo(500);
@@ -380,6 +379,30 @@ class ErrorPageFilterTests {
 		Map<String, Object> requestAttributes = getAttributesForDispatch("/500");
 		assertThat(requestAttributes.get(RequestDispatcher.ERROR_EXCEPTION_TYPE)).isEqualTo(RuntimeException.class);
 		assertThat(requestAttributes.get(RequestDispatcher.ERROR_EXCEPTION)).isInstanceOf(RuntimeException.class);
+		assertThat(this.request.getAttribute(RequestDispatcher.ERROR_EXCEPTION_TYPE)).isNull();
+		assertThat(this.request.getAttribute(RequestDispatcher.ERROR_EXCEPTION)).isNull();
+		assertThat(this.request.getAttribute(RequestDispatcher.ERROR_REQUEST_URI)).isEqualTo("/test/path");
+		assertThat(this.response.isCommitted()).isTrue();
+		assertThat(this.response.getForwardedUrl()).isEqualTo("/500");
+	}
+
+	@Test
+	void servletExceptionWithNoCause() throws Exception {
+		this.filter.addErrorPages(new ErrorPage(MissingServletRequestParameterException.class, "/500"));
+		this.chain = new TestFilterChain((request, response, chain) -> {
+			chain.call();
+			throw new MissingServletRequestParameterException("test", "string");
+		});
+		this.filter.doFilter(this.request, this.response, this.chain);
+		assertThat(((HttpServletResponseWrapper) this.chain.getResponse()).getStatus()).isEqualTo(500);
+		assertThat(this.request.getAttribute(RequestDispatcher.ERROR_STATUS_CODE)).isEqualTo(500);
+		assertThat(this.request.getAttribute(RequestDispatcher.ERROR_MESSAGE))
+				.isEqualTo("Required request parameter 'test' for method parameter type string is not present");
+		Map<String, Object> requestAttributes = getAttributesForDispatch("/500");
+		assertThat(requestAttributes.get(RequestDispatcher.ERROR_EXCEPTION_TYPE))
+				.isEqualTo(MissingServletRequestParameterException.class);
+		assertThat(requestAttributes.get(RequestDispatcher.ERROR_EXCEPTION))
+				.isInstanceOf(MissingServletRequestParameterException.class);
 		assertThat(this.request.getAttribute(RequestDispatcher.ERROR_EXCEPTION_TYPE)).isNull();
 		assertThat(this.request.getAttribute(RequestDispatcher.ERROR_EXCEPTION)).isNull();
 		assertThat(this.request.getAttribute(RequestDispatcher.ERROR_REQUEST_URI)).isEqualTo("/test/path");
@@ -410,7 +433,7 @@ class ErrorPageFilterTests {
 		return this.request.getDispatcher(path).getRequestAttributes();
 	}
 
-	private static class TestFilterChain extends MockFilterChain {
+	static class TestFilterChain extends MockFilterChain {
 
 		private final FilterHandler handler;
 
@@ -433,7 +456,7 @@ class ErrorPageFilterTests {
 	}
 
 	@FunctionalInterface
-	private interface FilterHandler {
+	interface FilterHandler {
 
 		void handle(HttpServletRequest request, HttpServletResponse response, Chain chain)
 				throws IOException, ServletException;
@@ -441,7 +464,7 @@ class ErrorPageFilterTests {
 	}
 
 	@FunctionalInterface
-	private interface Chain {
+	interface Chain {
 
 		void call() throws IOException, ServletException;
 

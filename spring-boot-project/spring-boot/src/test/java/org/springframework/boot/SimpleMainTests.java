@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,32 +44,32 @@ class SimpleMainTests {
 	private static final String SPRING_STARTUP = "Started SpringApplication in";
 
 	@Test
-	void emptyApplicationContext() throws Exception {
+	void emptyApplicationContext() {
 		assertThatIllegalArgumentException().isThrownBy(() -> SpringApplication.main(getArgs()));
 	}
 
 	@Test
-	void basePackageScan(CapturedOutput capturedOutput) throws Exception {
+	void basePackageScan(CapturedOutput output) throws Exception {
 		SpringApplication.main(getArgs(ClassUtils.getPackageName(getClass()) + ".sampleconfig"));
-		assertThat(capturedOutput).contains(SPRING_STARTUP);
+		assertThat(output).contains(SPRING_STARTUP);
 	}
 
 	@Test
-	void configClassContext(CapturedOutput capturedOutput) throws Exception {
+	void configClassContext(CapturedOutput output) throws Exception {
 		SpringApplication.main(getArgs(getClass().getName()));
-		assertThat(capturedOutput).contains(SPRING_STARTUP);
+		assertThat(output).contains(SPRING_STARTUP);
 	}
 
 	@Test
-	void xmlContext(CapturedOutput capturedOutput) throws Exception {
+	void xmlContext(CapturedOutput output) throws Exception {
 		SpringApplication.main(getArgs("org/springframework/boot/sample-beans.xml"));
-		assertThat(capturedOutput).contains(SPRING_STARTUP);
+		assertThat(output).contains(SPRING_STARTUP);
 	}
 
 	@Test
-	void mixedContext(CapturedOutput capturedOutput) throws Exception {
+	void mixedContext(CapturedOutput output) throws Exception {
 		SpringApplication.main(getArgs(getClass().getName(), "org/springframework/boot/sample-beans.xml"));
-		assertThat(capturedOutput).contains(SPRING_STARTUP);
+		assertThat(output).contains(SPRING_STARTUP);
 	}
 
 	private String[] getArgs(String... args) {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,15 @@
 
 package org.springframework.boot.web.servlet;
 
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServlet;
-
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpSessionIdListener;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.context.ConfigurableApplicationContext;
@@ -70,6 +70,17 @@ class ServletContextInitializerBeansTests {
 		assertThat(initializerBeans.iterator()).toIterable().hasOnlyElementsOfType(TestServletContextInitializer.class);
 	}
 
+	@Test
+	void whenAnHttpSessionIdListenerBeanIsDefinedThenARegistrationBeanIsCreatedForIt() {
+		load(HttpSessionIdListenerConfiguration.class);
+		ServletContextInitializerBeans initializerBeans = new ServletContextInitializerBeans(
+				this.context.getBeanFactory());
+		assertThat(initializerBeans).hasSize(1);
+		assertThat(initializerBeans).first().isInstanceOf(ServletListenerRegistrationBean.class)
+				.extracting((initializer) -> ((ServletListenerRegistrationBean<?>) initializer).getListener())
+				.isInstanceOf(HttpSessionIdListener.class);
+	}
+
 	private void load(Class<?>... configuration) {
 		this.context = new AnnotationConfigApplicationContext(configuration);
 	}
@@ -78,7 +89,7 @@ class ServletContextInitializerBeansTests {
 	static class ServletConfiguration {
 
 		@Bean
-		public TestServlet testServlet() {
+		TestServlet testServlet() {
 			return new TestServlet();
 		}
 
@@ -88,7 +99,7 @@ class ServletContextInitializerBeansTests {
 	static class FilterConfiguration {
 
 		@Bean
-		public TestFilter testFilter() {
+		TestFilter testFilter() {
 			return new TestFilter();
 		}
 
@@ -98,13 +109,24 @@ class ServletContextInitializerBeansTests {
 	static class TestConfiguration {
 
 		@Bean
-		public TestServletContextInitializer testServletContextInitializer() {
+		TestServletContextInitializer testServletContextInitializer() {
 			return new TestServletContextInitializer();
 		}
 
 		@Bean
-		public OtherTestServletContextInitializer otherTestServletContextInitializer() {
+		OtherTestServletContextInitializer otherTestServletContextInitializer() {
 			return new OtherTestServletContextInitializer();
+		}
+
+	}
+
+	@Configuration(proxyBeanMethods = false)
+	static class HttpSessionIdListenerConfiguration {
+
+		@Bean
+		HttpSessionIdListener httpSessionIdListener() {
+			return (event, oldId) -> {
+			};
 		}
 
 	}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,11 +24,11 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.AfterRollbackProcessor;
-import org.springframework.kafka.listener.BatchErrorHandler;
+import org.springframework.kafka.listener.CommonErrorHandler;
 import org.springframework.kafka.listener.ConsumerAwareRebalanceListener;
 import org.springframework.kafka.listener.ContainerProperties;
-import org.springframework.kafka.listener.ErrorHandler;
 import org.springframework.kafka.listener.RecordInterceptor;
+import org.springframework.kafka.listener.adapter.RecordFilterStrategy;
 import org.springframework.kafka.support.converter.MessageConverter;
 import org.springframework.kafka.transaction.KafkaAwareTransactionManager;
 
@@ -45,15 +45,15 @@ public class ConcurrentKafkaListenerContainerFactoryConfigurer {
 
 	private MessageConverter messageConverter;
 
+	private RecordFilterStrategy<Object, Object> recordFilterStrategy;
+
 	private KafkaTemplate<Object, Object> replyTemplate;
 
 	private KafkaAwareTransactionManager<Object, Object> transactionManager;
 
 	private ConsumerAwareRebalanceListener rebalanceListener;
 
-	private ErrorHandler errorHandler;
-
-	private BatchErrorHandler batchErrorHandler;
+	private CommonErrorHandler commonErrorHandler;
 
 	private AfterRollbackProcessor<Object, Object> afterRollbackProcessor;
 
@@ -73,6 +73,14 @@ public class ConcurrentKafkaListenerContainerFactoryConfigurer {
 	 */
 	void setMessageConverter(MessageConverter messageConverter) {
 		this.messageConverter = messageConverter;
+	}
+
+	/**
+	 * Set the {@link RecordFilterStrategy} to use to filter incoming records.
+	 * @param recordFilterStrategy the record filter strategy
+	 */
+	void setRecordFilterStrategy(RecordFilterStrategy<Object, Object> recordFilterStrategy) {
+		this.recordFilterStrategy = recordFilterStrategy;
 	}
 
 	/**
@@ -101,19 +109,12 @@ public class ConcurrentKafkaListenerContainerFactoryConfigurer {
 	}
 
 	/**
-	 * Set the {@link ErrorHandler} to use.
-	 * @param errorHandler the error handler
+	 * Set the {@link CommonErrorHandler} to use.
+	 * @param commonErrorHandler the error handler.
+	 * @since 2.6.0
 	 */
-	void setErrorHandler(ErrorHandler errorHandler) {
-		this.errorHandler = errorHandler;
-	}
-
-	/**
-	 * Set the {@link BatchErrorHandler} to use.
-	 * @param batchErrorHandler the error handler
-	 */
-	void setBatchErrorHandler(BatchErrorHandler batchErrorHandler) {
-		this.batchErrorHandler = batchErrorHandler;
+	public void setCommonErrorHandler(CommonErrorHandler commonErrorHandler) {
+		this.commonErrorHandler = commonErrorHandler;
 	}
 
 	/**
@@ -151,14 +152,12 @@ public class ConcurrentKafkaListenerContainerFactoryConfigurer {
 		Listener properties = this.properties.getListener();
 		map.from(properties::getConcurrency).to(factory::setConcurrency);
 		map.from(this.messageConverter).to(factory::setMessageConverter);
+		map.from(this.recordFilterStrategy).to(factory::setRecordFilterStrategy);
 		map.from(this.replyTemplate).to(factory::setReplyTemplate);
 		if (properties.getType().equals(Listener.Type.BATCH)) {
 			factory.setBatchListener(true);
-			factory.setBatchErrorHandler(this.batchErrorHandler);
 		}
-		else {
-			factory.setErrorHandler(this.errorHandler);
-		}
+		map.from(this.commonErrorHandler).to(factory::setCommonErrorHandler);
 		map.from(this.afterRollbackProcessor).to(factory::setAfterRollbackProcessor);
 		map.from(this.recordInterceptor).to(factory::setRecordInterceptor);
 	}
@@ -167,16 +166,21 @@ public class ConcurrentKafkaListenerContainerFactoryConfigurer {
 		PropertyMapper map = PropertyMapper.get().alwaysApplyingWhenNonNull();
 		Listener properties = this.properties.getListener();
 		map.from(properties::getAckMode).to(container::setAckMode);
+		map.from(properties::getAsyncAcks).to(container::setAsyncAcks);
 		map.from(properties::getClientId).to(container::setClientId);
 		map.from(properties::getAckCount).to(container::setAckCount);
 		map.from(properties::getAckTime).as(Duration::toMillis).to(container::setAckTime);
 		map.from(properties::getPollTimeout).as(Duration::toMillis).to(container::setPollTimeout);
 		map.from(properties::getNoPollThreshold).to(container::setNoPollThreshold);
+		map.from(properties.getIdleBetweenPolls()).as(Duration::toMillis).to(container::setIdleBetweenPolls);
 		map.from(properties::getIdleEventInterval).as(Duration::toMillis).to(container::setIdleEventInterval);
+		map.from(properties::getIdlePartitionEventInterval).as(Duration::toMillis)
+				.to(container::setIdlePartitionEventInterval);
 		map.from(properties::getMonitorInterval).as(Duration::getSeconds).as(Number::intValue)
 				.to(container::setMonitorInterval);
 		map.from(properties::getLogContainerConfig).to(container::setLogContainerConfig);
 		map.from(properties::isMissingTopicsFatal).to(container::setMissingTopicsFatal);
+		map.from(properties::isImmediateStop).to(container::setStopImmediate);
 		map.from(this.transactionManager).to(container::setTransactionManager);
 		map.from(this.rebalanceListener).to(container::setConsumerRebalanceListener);
 	}

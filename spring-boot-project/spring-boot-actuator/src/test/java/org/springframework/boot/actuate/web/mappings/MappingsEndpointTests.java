@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,11 +22,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
-import javax.servlet.FilterRegistration;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRegistration;
-
+import jakarta.servlet.FilterRegistration;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRegistration;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.boot.actuate.web.mappings.MappingsEndpoint.ApplicationMappings;
@@ -56,6 +55,9 @@ import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import org.springframework.web.servlet.DispatcherServlet;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.web.servlet.config.annotation.PathMatchConfigurer;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.web.util.pattern.PathPatternParser;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
@@ -77,6 +79,28 @@ class MappingsEndpointTests {
 		Supplier<ConfigurableWebApplicationContext> contextSupplier = prepareContextSupplier();
 		new WebApplicationContextRunner(contextSupplier)
 				.withUserConfiguration(EndpointConfiguration.class, ServletWebConfiguration.class).run((context) -> {
+					ContextMappings contextMappings = contextMappings(context);
+					assertThat(contextMappings.getParentId()).isNull();
+					assertThat(contextMappings.getMappings()).containsOnlyKeys("dispatcherServlets", "servletFilters",
+							"servlets");
+					Map<String, List<DispatcherServletMappingDescription>> dispatcherServlets = mappings(
+							contextMappings, "dispatcherServlets");
+					assertThat(dispatcherServlets).containsOnlyKeys("dispatcherServlet");
+					List<DispatcherServletMappingDescription> handlerMappings = dispatcherServlets
+							.get("dispatcherServlet");
+					assertThat(handlerMappings).hasSize(1);
+					List<ServletRegistrationMappingDescription> servlets = mappings(contextMappings, "servlets");
+					assertThat(servlets).hasSize(1);
+					List<FilterRegistrationMappingDescription> filters = mappings(contextMappings, "servletFilters");
+					assertThat(filters).hasSize(1);
+				});
+	}
+
+	@Test
+	void servletWebMappingsWithPathPatternParser() {
+		Supplier<ConfigurableWebApplicationContext> contextSupplier = prepareContextSupplier();
+		new WebApplicationContextRunner(contextSupplier).withUserConfiguration(EndpointConfiguration.class,
+				ServletWebConfiguration.class, PathPatternParserConfiguration.class).run((context) -> {
 					ContextMappings contextMappings = contextMappings(context);
 					assertThat(contextMappings.getParentId()).isNull();
 					assertThat(contextMappings.getMappings()).containsOnlyKeys("dispatcherServlets", "servletFilters",
@@ -139,7 +163,7 @@ class MappingsEndpointTests {
 							contextMappings, "dispatcherHandlers");
 					assertThat(dispatcherHandlers).containsOnlyKeys("webHandler");
 					List<DispatcherHandlerMappingDescription> handlerMappings = dispatcherHandlers.get("webHandler");
-					assertThat(handlerMappings).hasSize(3);
+					assertThat(handlerMappings).hasSize(4);
 				});
 	}
 
@@ -158,7 +182,7 @@ class MappingsEndpointTests {
 	static class EndpointConfiguration {
 
 		@Bean
-		public MappingsEndpoint mappingsEndpoint(Collection<MappingDescriptionProvider> descriptionProviders,
+		MappingsEndpoint mappingsEndpoint(Collection<MappingDescriptionProvider> descriptionProviders,
 				ApplicationContext context) {
 			return new MappingsEndpoint(descriptionProviders, context);
 		}
@@ -171,19 +195,24 @@ class MappingsEndpointTests {
 	static class ReactiveWebConfiguration {
 
 		@Bean
-		public DispatcherHandlersMappingDescriptionProvider dispatcherHandlersMappingDescriptionProvider() {
+		DispatcherHandlersMappingDescriptionProvider dispatcherHandlersMappingDescriptionProvider() {
 			return new DispatcherHandlersMappingDescriptionProvider();
 		}
 
 		@Bean
-		public RouterFunction<ServerResponse> routerFunction() {
+		RouterFunction<ServerResponse> routerFunction() {
 			return route(GET("/one"), (request) -> ServerResponse.ok().build()).andRoute(POST("/two"),
 					(request) -> ServerResponse.ok().build());
 		}
 
 		@RequestMapping("/three")
-		public void three() {
+		void three() {
 
+		}
+
+		@Bean
+		RouterFunction<ServerResponse> routerFunctionWithAttributes() {
+			return route(GET("/four"), (request) -> ServerResponse.ok().build()).withAttribute("test", "test");
 		}
 
 	}
@@ -194,29 +223,29 @@ class MappingsEndpointTests {
 	static class ServletWebConfiguration {
 
 		@Bean
-		public DispatcherServletsMappingDescriptionProvider dispatcherServletsMappingDescriptionProvider() {
+		DispatcherServletsMappingDescriptionProvider dispatcherServletsMappingDescriptionProvider() {
 			return new DispatcherServletsMappingDescriptionProvider();
 		}
 
 		@Bean
-		public ServletsMappingDescriptionProvider servletsMappingDescriptionProvider() {
+		ServletsMappingDescriptionProvider servletsMappingDescriptionProvider() {
 			return new ServletsMappingDescriptionProvider();
 		}
 
 		@Bean
-		public FiltersMappingDescriptionProvider filtersMappingDescriptionProvider() {
+		FiltersMappingDescriptionProvider filtersMappingDescriptionProvider() {
 			return new FiltersMappingDescriptionProvider();
 		}
 
 		@Bean
-		public DispatcherServlet dispatcherServlet(WebApplicationContext context) throws ServletException {
+		DispatcherServlet dispatcherServlet(WebApplicationContext context) throws ServletException {
 			DispatcherServlet dispatcherServlet = new DispatcherServlet(context);
 			dispatcherServlet.init(new MockServletConfig());
 			return dispatcherServlet;
 		}
 
 		@RequestMapping("/three")
-		public void three() {
+		void three() {
 
 		}
 
@@ -226,8 +255,7 @@ class MappingsEndpointTests {
 	static class CustomDispatcherServletConfiguration {
 
 		@Bean
-		public ServletRegistrationBean<DispatcherServlet> customDispatcherServletRegistration(
-				WebApplicationContext context) {
+		ServletRegistrationBean<DispatcherServlet> customDispatcherServletRegistration(WebApplicationContext context) {
 			ServletRegistrationBean<DispatcherServlet> registration = new ServletRegistrationBean<>(
 					createTestDispatcherServlet(context));
 			registration.setName("customDispatcherServletRegistration");
@@ -235,12 +263,12 @@ class MappingsEndpointTests {
 		}
 
 		@Bean
-		public DispatcherServlet anotherDispatcherServlet(WebApplicationContext context) {
+		DispatcherServlet anotherDispatcherServlet(WebApplicationContext context) {
 			return createTestDispatcherServlet(context);
 		}
 
 		@Bean
-		public ServletRegistrationBean<DispatcherServlet> anotherDispatcherServletRegistration(
+		ServletRegistrationBean<DispatcherServlet> anotherDispatcherServletRegistration(
 				DispatcherServlet dispatcherServlet, WebApplicationContext context) {
 			ServletRegistrationBean<DispatcherServlet> registrationBean = new ServletRegistrationBean<>(
 					anotherDispatcherServlet(context));
@@ -257,6 +285,23 @@ class MappingsEndpointTests {
 			catch (ServletException ex) {
 				throw new IllegalStateException(ex);
 			}
+		}
+
+	}
+
+	@Configuration
+	static class PathPatternParserConfiguration {
+
+		@Bean
+		WebMvcConfigurer pathPatternParserConfigurer() {
+			return new WebMvcConfigurer() {
+
+				@Override
+				public void configurePathMatch(PathMatchConfigurer configurer) {
+					configurer.setPatternParser(new PathPatternParser());
+				}
+
+			};
 		}
 
 	}

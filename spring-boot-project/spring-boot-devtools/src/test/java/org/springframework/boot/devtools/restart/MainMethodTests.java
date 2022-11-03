@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,18 +57,18 @@ class MainMethodTests {
 	}
 
 	@Test
-	void missingArgsMainMethod() throws Exception {
+	void missingArgsMainMethod() {
 		assertThatIllegalStateException().isThrownBy(() -> new TestThread(MissingArgs::main).test())
 				.withMessageContaining("Unable to find main method");
 	}
 
 	@Test
-	void nonStatic() throws Exception {
+	void nonStatic() {
 		assertThatIllegalStateException().isThrownBy(() -> new TestThread(() -> new NonStaticMain().main()).test())
 				.withMessageContaining("Unable to find main method");
 	}
 
-	private static class TestThread extends Thread {
+	static class TestThread extends Thread {
 
 		private final Runnable runnable;
 
@@ -80,7 +80,7 @@ class MainMethodTests {
 			this.runnable = runnable;
 		}
 
-		public MainMethod test() throws InterruptedException {
+		MainMethod test() throws InterruptedException {
 			start();
 			join();
 			if (this.exception != null) {
@@ -122,9 +122,9 @@ class MainMethodTests {
 
 	}
 
-	private static class NonStaticMain {
+	public static class NonStaticMain {
 
-		public void main(String... args) {
+		void main(String... args) {
 			mainMethod.set(new MainMethod());
 		}
 

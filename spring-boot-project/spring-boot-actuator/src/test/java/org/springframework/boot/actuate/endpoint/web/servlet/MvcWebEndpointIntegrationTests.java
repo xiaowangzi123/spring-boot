@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,12 +19,11 @@ package org.springframework.boot.actuate.endpoint.web.servlet;
 import java.io.IOException;
 import java.util.Arrays;
 
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.boot.actuate.endpoint.web.EndpointLinksResolver;
@@ -46,15 +45,14 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestWrapper;
+import org.springframework.util.StringUtils;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.web.servlet.handler.RequestMatchResult;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -104,23 +102,9 @@ class MvcWebEndpointIntegrationTests
 	}
 
 	@Test
-	void matchWhenRequestHasTrailingSlashShouldNotBeNull() {
-		assertThat(getMatchResult("/spring/")).isNotNull();
-	}
-
-	@Test
-	void matchWhenRequestHasSuffixShouldBeNull() {
-		assertThat(getMatchResult("/spring.do")).isNull();
-	}
-
-	private RequestMatchResult getMatchResult(String servletPath) {
-		MockHttpServletRequest request = new MockHttpServletRequest();
-		request.setServletPath(servletPath);
-		AnnotationConfigServletWebServerApplicationContext context = createApplicationContext();
-		context.register(TestEndpointConfiguration.class);
-		context.refresh();
-		WebMvcEndpointHandlerMapping bean = context.getBean(WebMvcEndpointHandlerMapping.class);
-		return bean.match(request, "/spring");
+	void requestWithSuffixShouldNotMatch() {
+		load(TestEndpointConfiguration.class, (client) -> client.options().uri("/test.do")
+				.accept(MediaType.APPLICATION_JSON).exchange().expectStatus().isNotFound());
 	}
 
 	@Override
@@ -135,19 +119,47 @@ class MvcWebEndpointIntegrationTests
 	static class WebMvcConfiguration {
 
 		@Bean
-		public TomcatServletWebServerFactory tomcat() {
+		TomcatServletWebServerFactory tomcat() {
 			return new TomcatServletWebServerFactory(0);
 		}
 
 		@Bean
-		public WebMvcEndpointHandlerMapping webEndpointHandlerMapping(Environment environment,
+		WebMvcEndpointHandlerMapping webEndpointHandlerMapping(Environment environment,
 				WebEndpointDiscoverer endpointDiscoverer, EndpointMediaTypes endpointMediaTypes) {
 			CorsConfiguration corsConfiguration = new CorsConfiguration();
 			corsConfiguration.setAllowedOrigins(Arrays.asList("https://example.com"));
 			corsConfiguration.setAllowedMethods(Arrays.asList("GET", "POST"));
-			return new WebMvcEndpointHandlerMapping(new EndpointMapping(environment.getProperty("endpointPath")),
+			String endpointPath = environment.getProperty("endpointPath");
+			return new WebMvcEndpointHandlerMapping(new EndpointMapping(endpointPath),
 					endpointDiscoverer.getEndpoints(), endpointMediaTypes, corsConfiguration,
-					new EndpointLinksResolver(endpointDiscoverer.getEndpoints()));
+					new EndpointLinksResolver(endpointDiscoverer.getEndpoints()), StringUtils.hasText(endpointPath));
+		}
+
+	}
+
+	@Configuration(proxyBeanMethods = false)
+	@ImportAutoConfiguration({ JacksonAutoConfiguration.class, HttpMessageConvertersAutoConfiguration.class,
+			ServletWebServerFactoryAutoConfiguration.class, WebMvcAutoConfiguration.class,
+			DispatcherServletAutoConfiguration.class, ErrorMvcAutoConfiguration.class })
+	static class PathMatcherWebMvcConfiguration {
+
+		@Bean
+		TomcatServletWebServerFactory tomcat() {
+			return new TomcatServletWebServerFactory(0);
+		}
+
+		@Bean
+		WebMvcEndpointHandlerMapping webEndpointHandlerMapping(Environment environment,
+				WebEndpointDiscoverer endpointDiscoverer, EndpointMediaTypes endpointMediaTypes) {
+			CorsConfiguration corsConfiguration = new CorsConfiguration();
+			corsConfiguration.setAllowedOrigins(Arrays.asList("https://example.com"));
+			corsConfiguration.setAllowedMethods(Arrays.asList("GET", "POST"));
+			String endpointPath = environment.getProperty("endpointPath");
+			WebMvcEndpointHandlerMapping handlerMapping = new WebMvcEndpointHandlerMapping(
+					new EndpointMapping(endpointPath), endpointDiscoverer.getEndpoints(), endpointMediaTypes,
+					corsConfiguration, new EndpointLinksResolver(endpointDiscoverer.getEndpoints()),
+					StringUtils.hasText(endpointPath));
+			return handlerMapping;
 		}
 
 	}
@@ -156,7 +168,7 @@ class MvcWebEndpointIntegrationTests
 	static class AuthenticatedConfiguration {
 
 		@Bean
-		public Filter securityFilter() {
+		Filter securityFilter() {
 			return new OncePerRequestFilter() {
 
 				@Override

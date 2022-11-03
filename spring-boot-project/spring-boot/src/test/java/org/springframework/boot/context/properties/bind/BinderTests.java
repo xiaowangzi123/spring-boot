@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,12 +24,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.validation.Validation;
-
+import jakarta.validation.Validation;
 import org.junit.jupiter.api.Test;
-import org.mockito.Answers;
 import org.mockito.InOrder;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
+import org.springframework.boot.context.properties.bind.Bindable.BindRestriction;
 import org.springframework.boot.context.properties.bind.validation.ValidationBindHandler;
 import org.springframework.boot.context.properties.source.ConfigurationPropertyName;
 import org.springframework.boot.context.properties.source.ConfigurationPropertySource;
@@ -53,6 +54,7 @@ import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isA;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 
@@ -69,9 +71,27 @@ class BinderTests {
 	private Binder binder = new Binder(this.sources);
 
 	@Test
-	void createWhenSourcesIsNullShouldThrowException() {
+	void createWhenSourcesIsNullArrayShouldThrowException() {
+		assertThatIllegalArgumentException().isThrownBy(() -> new Binder((ConfigurationPropertySource[]) null))
+				.withMessageContaining("Sources must not be null");
+	}
+
+	@Test
+	void createWhenSourcesIsNullIterableShouldThrowException() {
 		assertThatIllegalArgumentException().isThrownBy(() -> new Binder((Iterable<ConfigurationPropertySource>) null))
 				.withMessageContaining("Sources must not be null");
+	}
+
+	@Test
+	void createWhenArraySourcesContainsNullElementShouldThrowException() {
+		assertThatIllegalArgumentException().isThrownBy(() -> new Binder(new ConfigurationPropertySource[] { null }))
+				.withMessageContaining("Sources must not contain null elements");
+	}
+
+	@Test
+	void createWhenIterableSourcesContainsNullElementShouldThrowException() {
+		assertThatIllegalArgumentException().isThrownBy(() -> new Binder(Collections.singletonList(null)))
+				.withMessageContaining("Sources must not contain null elements");
 	}
 
 	@Test
@@ -155,7 +175,7 @@ class BinderTests {
 	@Test
 	void bindToValueShouldTriggerOnSuccess() {
 		this.sources.add(new MockConfigurationPropertySource("foo", "1", "line1"));
-		BindHandler handler = mock(BindHandler.class, Answers.CALLS_REAL_METHODS);
+		BindHandler handler = mockBindHandler();
 		Bindable<Integer> target = Bindable.of(Integer.class);
 		this.binder.bind("foo", target, handler);
 		InOrder ordered = inOrder(handler);
@@ -164,7 +184,7 @@ class BinderTests {
 
 	@Test
 	void bindOrCreateWhenNotBoundShouldTriggerOnCreate() {
-		BindHandler handler = mock(BindHandler.class, Answers.CALLS_REAL_METHODS);
+		BindHandler handler = mock(BindHandler.class);
 		Bindable<JavaBean> target = Bindable.of(JavaBean.class);
 		this.binder.bindOrCreate("foo", target, handler);
 		InOrder ordered = inOrder(handler);
@@ -200,9 +220,23 @@ class BinderTests {
 	@Test
 	void bindToJavaBeanShouldTriggerOnSuccess() {
 		this.sources.add(new MockConfigurationPropertySource("foo.value", "bar", "line1"));
-		BindHandler handler = mock(BindHandler.class, Answers.CALLS_REAL_METHODS);
+		BindHandler handler = mockBindHandler();
 		Bindable<JavaBean> target = Bindable.of(JavaBean.class);
 		this.binder.bind("foo", target, handler);
+		InOrder inOrder = inOrder(handler);
+		inOrder.verify(handler).onSuccess(eq(ConfigurationPropertyName.of("foo.value")), eq(Bindable.of(String.class)),
+				any(), eq("bar"));
+		inOrder.verify(handler).onSuccess(eq(ConfigurationPropertyName.of("foo")), eq(target), any(),
+				isA(JavaBean.class));
+	}
+
+	@Test
+	void bindWhenHasCustomDefaultHandlerShouldTriggerOnSuccess() {
+		this.sources.add(new MockConfigurationPropertySource("foo.value", "bar", "line1"));
+		BindHandler handler = mockBindHandler();
+		Binder binder = new Binder(this.sources, null, null, null, handler);
+		Bindable<JavaBean> target = Bindable.of(JavaBean.class);
+		binder.bind("foo", target);
 		InOrder inOrder = inOrder(handler);
 		inOrder.verify(handler).onSuccess(eq(ConfigurationPropertyName.of("foo.value")), eq(Bindable.of(String.class)),
 				any(), eq("bar"));
@@ -225,22 +259,6 @@ class BinderTests {
 				Collections.singletonMap("iso", DateTimeFormat.ISO.DATE_TIME), DateTimeFormat.class, null);
 		LocalDate result = this.binder.bind("foo", Bindable.of(LocalDate.class).withAnnotations(annotation)).get();
 		assertThat(result.toString()).isEqualTo("2014-04-01");
-	}
-
-	@Test
-	void bindExceptionWhenBeanBindingFailsShouldHaveNullConfigurationProperty() {
-		MockConfigurationPropertySource source = new MockConfigurationPropertySource();
-		source.put("foo.value", "hello");
-		source.put("foo.items", "bar,baz");
-		this.sources.add(source);
-		Bindable<JavaBean> target = Bindable.of(JavaBean.class);
-		assertThatExceptionOfType(BindException.class).isThrownBy(() -> this.binder.bind("foo", target))
-				.satisfies(this::noItemsSetterRequirements);
-	}
-
-	private void noItemsSetterRequirements(BindException ex) {
-		assertThat(ex.getCause().getMessage()).isEqualTo("No setter found for property: items");
-		assertThat(ex.getProperty()).isNull();
 	}
 
 	@Test
@@ -304,55 +322,101 @@ class BinderTests {
 		assertThat(value).isInstanceOf(JavaBean.class);
 	}
 
-	public static class JavaBean {
+	@Test
+	void bindToJavaBeanWhenHandlerOnStartReturnsNullShouldReturnUnbound() { // gh-18129
+		this.sources.add(new MockConfigurationPropertySource("foo.value", "bar"));
+		BindResult<JavaBean> result = this.binder.bind("foo", Bindable.of(JavaBean.class), new BindHandler() {
+
+			@Override
+			public <T> Bindable<T> onStart(ConfigurationPropertyName name, Bindable<T> target, BindContext context) {
+				return null;
+			}
+
+		});
+		assertThat(result.isBound()).isFalse();
+	}
+
+	@Test
+	void bindToJavaBeanWithPublicConstructor() {
+		Bindable<JavaBeanWithPublicConstructor> bindable = Bindable.of(JavaBeanWithPublicConstructor.class);
+		JavaBeanWithPublicConstructor result = bindToJavaBeanWithPublicConstructor(bindable);
+		assertThat(result.getValue()).isEqualTo("constructor");
+	}
+
+	@Test
+	void bindToJavaBeanWithPublicConstructorWhenHasBindRestriction() {
+		Bindable<JavaBeanWithPublicConstructor> bindable = Bindable.of(JavaBeanWithPublicConstructor.class)
+				.withBindRestrictions(BindRestriction.NO_DIRECT_PROPERTY);
+		JavaBeanWithPublicConstructor result = bindToJavaBeanWithPublicConstructor(bindable);
+		assertThat(result.getValue()).isEqualTo("setter");
+	}
+
+	private JavaBeanWithPublicConstructor bindToJavaBeanWithPublicConstructor(
+			Bindable<JavaBeanWithPublicConstructor> bindable) {
+		MockConfigurationPropertySource source = new MockConfigurationPropertySource();
+		source.put("foo", "constructor");
+		source.put("foo.value", "setter");
+		this.sources.add(source);
+		return this.binder.bindOrCreate("foo", bindable);
+	}
+
+	private BindHandler mockBindHandler() {
+		BindHandler handler = mock(BindHandler.class);
+		given(handler.onStart(any(), any(), any())).willAnswer(InvocationArgument.index(1));
+		given(handler.onCreate(any(), any(), any(), any())).willAnswer(InvocationArgument.index(3));
+		given(handler.onSuccess(any(), any(), any(), any())).willAnswer(InvocationArgument.index(3));
+		return handler;
+	}
+
+	static class JavaBean {
 
 		private String value;
 
 		private List<String> items = Collections.emptyList();
 
-		public String getValue() {
+		String getValue() {
 			return this.value;
 		}
 
-		public void setValue(String value) {
+		void setValue(String value) {
 			this.value = value;
 		}
 
-		public List<String> getItems() {
+		List<String> getItems() {
 			return this.items;
 		}
 
 	}
 
-	public static class NestedJavaBean {
+	static class NestedJavaBean {
 
 		private DefaultValuesBean valuesBean = new DefaultValuesBean();
 
-		public DefaultValuesBean getValuesBean() {
+		DefaultValuesBean getValuesBean() {
 			return this.valuesBean;
 		}
 
-		public void setValuesBean(DefaultValuesBean valuesBean) {
+		void setValuesBean(DefaultValuesBean valuesBean) {
 			this.valuesBean = valuesBean;
 		}
 
 	}
 
-	public static class DefaultValuesBean {
+	static class DefaultValuesBean {
 
 		private String value = "hello";
 
 		private List<String> items = Collections.emptyList();
 
-		public String getValue() {
+		String getValue() {
 			return this.value;
 		}
 
-		public void setValue(String value) {
+		void setValue(String value) {
 			this.value = value;
 		}
 
-		public List<String> getItems() {
+		List<String> getItems() {
 			return this.items;
 		}
 
@@ -365,69 +429,88 @@ class BinderTests {
 	}
 
 	@Validated
-	public static class ResourceBean {
+	static class ResourceBean {
 
 		private Resource resource;
 
-		public Resource getResource() {
+		Resource getResource() {
 			return this.resource;
 		}
 
-		public void setResource(Resource resource) {
+		void setResource(Resource resource) {
 			this.resource = resource;
 		}
 
 	}
 
-	public static class CycleBean1 {
+	static class CycleBean1 {
 
 		private CycleBean2 two;
 
-		public CycleBean2 getTwo() {
+		CycleBean2 getTwo() {
 			return this.two;
 		}
 
-		public void setTwo(CycleBean2 two) {
+		void setTwo(CycleBean2 two) {
 			this.two = two;
 		}
 
 	}
 
-	public static class CycleBean2 {
+	static class CycleBean2 {
 
 		private CycleBean1 one;
 
-		public CycleBean1 getOne() {
+		CycleBean1 getOne() {
 			return this.one;
 		}
 
-		public void setOne(CycleBean1 one) {
+		void setOne(CycleBean1 one) {
 			this.one = one;
 		}
 
 	}
 
-	public static class GenericBean<T> {
+	static class GenericBean<T> {
 
 		private T bar;
 
-		public T getBar() {
+		T getBar() {
 			return this.bar;
 		}
 
-		public void setBar(T bar) {
+		void setBar(T bar) {
 			this.bar = bar;
 		}
 
 	}
 
-	public static class JavaBeanPropertyEditor extends PropertyEditorSupport {
+	static class JavaBeanPropertyEditor extends PropertyEditorSupport {
 
 		@Override
-		public void setAsText(String text) throws IllegalArgumentException {
+		public void setAsText(String text) {
 			JavaBean value = new JavaBean();
 			value.setValue(text);
 			setValue(value);
+		}
+
+	}
+
+	private static final class InvocationArgument<T> implements Answer<T> {
+
+		private final int index;
+
+		private InvocationArgument(int index) {
+			this.index = index;
+		}
+
+		@Override
+		public T answer(InvocationOnMock invocation) throws Throwable {
+			return invocation.getArgument(this.index);
+		}
+
+		private static <T> InvocationArgument<T> index(int index) {
+			return new InvocationArgument<>(index);
 		}
 
 	}

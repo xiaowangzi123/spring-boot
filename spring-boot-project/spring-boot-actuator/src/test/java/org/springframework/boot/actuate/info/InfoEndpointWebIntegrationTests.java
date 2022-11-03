@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ package org.springframework.boot.actuate.info;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.actuate.endpoint.web.test.WebEndpointTest;
@@ -47,15 +46,15 @@ class InfoEndpointWebIntegrationTests {
 	}
 
 	@Configuration(proxyBeanMethods = false)
-	public static class TestConfiguration {
+	static class TestConfiguration {
 
 		@Bean
-		public InfoEndpoint endpoint(ObjectProvider<InfoContributor> infoContributors) {
-			return new InfoEndpoint(infoContributors.orderedStream().collect(Collectors.toList()));
+		InfoEndpoint endpoint(ObjectProvider<InfoContributor> infoContributors) {
+			return new InfoEndpoint(infoContributors.orderedStream().toList());
 		}
 
 		@Bean
-		public InfoContributor beanName1() {
+		InfoContributor beanName1() {
 			return (builder) -> {
 				Map<String, Object> content = new LinkedHashMap<>();
 				content.put("key11", "value11");
@@ -65,7 +64,7 @@ class InfoEndpointWebIntegrationTests {
 		}
 
 		@Bean
-		public InfoContributor beanName2() {
+		InfoContributor beanName2() {
 			return (builder) -> {
 				Map<String, Object> content = new LinkedHashMap<>();
 				content.put("key21", "value21");

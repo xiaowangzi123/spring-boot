@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class ProjectInfoAutoConfigurationTests {
 
-	private ApplicationContextRunner contextRunner = new ApplicationContextRunner().withConfiguration(
+	private final ApplicationContextRunner contextRunner = new ApplicationContextRunner().withConfiguration(
 			AutoConfigurations.of(PropertyPlaceholderAutoConfiguration.class, ProjectInfoAutoConfiguration.class));
 
 	@Test
@@ -59,7 +59,7 @@ class ProjectInfoAutoConfigurationTests {
 	@Test
 	void gitPropertiesFallbackWithGitPropertiesBean() {
 		this.contextRunner.withUserConfiguration(CustomInfoPropertiesConfiguration.class).withPropertyValues(
-				"spring.info.git.location=" + "classpath:/org/springframework/boot/autoconfigure/info/git.properties")
+				"spring.info.git.location=classpath:/org/springframework/boot/autoconfigure/info/git.properties")
 				.run((context) -> {
 					GitProperties gitProperties = context.getBean(GitProperties.class);
 					assertThat(gitProperties).isSameAs(context.getBean("customGitProperties"));
@@ -115,8 +115,7 @@ class ProjectInfoAutoConfigurationTests {
 
 	@Test
 	void buildPropertiesCustomInvalidLocation() {
-		this.contextRunner
-				.withPropertyValues("spring.info.build.location=" + "classpath:/org/acme/no-build-info.properties")
+		this.contextRunner.withPropertyValues("spring.info.build.location=classpath:/org/acme/no-build-info.properties")
 				.run((context) -> assertThat(context.getBeansOfType(BuildProperties.class)).hasSize(0));
 	}
 
@@ -152,12 +151,12 @@ class ProjectInfoAutoConfigurationTests {
 	static class CustomInfoPropertiesConfiguration {
 
 		@Bean
-		public GitProperties customGitProperties() {
+		GitProperties customGitProperties() {
 			return new GitProperties(new Properties());
 		}
 
 		@Bean
-		public BuildProperties customBuildProperties() {
+		BuildProperties customBuildProperties() {
 			return new BuildProperties(new Properties());
 		}
 

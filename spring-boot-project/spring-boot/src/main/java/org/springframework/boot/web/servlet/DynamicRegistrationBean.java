@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,8 @@ package org.springframework.boot.web.servlet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import javax.servlet.Registration;
-import javax.servlet.ServletContext;
-
+import jakarta.servlet.Registration;
+import jakarta.servlet.ServletContext;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -30,7 +29,7 @@ import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
 /**
- * Base class for Servlet 3.0+ {@link javax.servlet.Registration.Dynamic dynamic} based
+ * Base class for Servlet 3.0+ {@link jakarta.servlet.Registration.Dynamic dynamic} based
  * registration beans.
  *
  * @param <D> the dynamic registration result
@@ -107,8 +106,7 @@ public abstract class DynamicRegistrationBean<D extends Registration.Dynamic> ex
 	protected final void register(String description, ServletContext servletContext) {
 		D registration = addRegistration(description, servletContext);
 		if (registration == null) {
-			logger.info(
-					StringUtils.capitalize(description) + " was not registered " + "(possibly already registered?)");
+			logger.info(StringUtils.capitalize(description) + " was not registered (possibly already registered?)");
 			return;
 		}
 		configure(registration);

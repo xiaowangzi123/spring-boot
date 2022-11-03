@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ import java.util.List;
 import javax.sql.DataSource;
 
 import org.flywaydb.core.api.MigrationState;
-import org.flywaydb.core.api.MigrationType;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.boot.actuate.flyway.FlywayEndpoint;
@@ -55,7 +54,7 @@ class FlywayEndpointDocumentationTests extends MockMvcEndpointDocumentationTests
 				.andDo(MockMvcRestDocumentation.document("flyway",
 						responseFields(fieldWithPath("contexts").description("Application contexts keyed by id"),
 								fieldWithPath("contexts.*.flywayBeans.*.migrations").description(
-										"Migrations performed by the Flyway instance, keyed by" + " Flyway bean name."))
+										"Migrations performed by the Flyway instance, keyed by Flyway bean name."))
 												.andWithPrefix("contexts.*.flywayBeans.*.migrations.[].",
 														migrationFieldDescriptors())
 												.and(parentIdField())));
@@ -69,18 +68,16 @@ class FlywayEndpointDocumentationTests extends MockMvcEndpointDocumentationTests
 				fieldWithPath("installedBy").description("User that installed the applied migration, if any.")
 						.optional(),
 				fieldWithPath("installedOn")
-						.description("Timestamp of when the applied migration was installed, " + "if any.").optional(),
+						.description("Timestamp of when the applied migration was installed, if any.").optional(),
 				fieldWithPath("installedRank")
-						.description("Rank of the applied migration, if any. Later migrations have " + "higher ranks.")
+						.description("Rank of the applied migration, if any. Later migrations have higher ranks.")
 						.optional(),
 				fieldWithPath("script").description("Name of the script used to execute the migration, if any.")
 						.optional(),
 				fieldWithPath("state")
 						.description("State of the migration. (" + describeEnumValues(MigrationState.class) + ")"),
-				fieldWithPath("type")
-						.description("Type of the migration. (" + describeEnumValues(MigrationType.class) + ")"),
-				fieldWithPath("version")
-						.description("Version of the database after applying the migration, " + "if any.").optional());
+				fieldWithPath("type").description("Type of the migration."), fieldWithPath("version")
+						.description("Version of the database after applying the migration, if any.").optional());
 	}
 
 	@Configuration(proxyBeanMethods = false)
@@ -89,13 +86,13 @@ class FlywayEndpointDocumentationTests extends MockMvcEndpointDocumentationTests
 	static class TestConfiguration {
 
 		@Bean
-		public DataSource dataSource() {
+		DataSource dataSource() {
 			return new EmbeddedDatabaseBuilder().generateUniqueName(true)
 					.setType(EmbeddedDatabaseConnection.get(getClass().getClassLoader()).getType()).build();
 		}
 
 		@Bean
-		public FlywayEndpoint endpoint(ApplicationContext context) {
+		FlywayEndpoint endpoint(ApplicationContext context) {
 			return new FlywayEndpoint(context);
 		}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,35 +63,35 @@ abstract class PropertyDescriptor<S extends Element> {
 		this.setter = setter;
 	}
 
-	public TypeElement getOwnerElement() {
+	TypeElement getOwnerElement() {
 		return this.ownerElement;
 	}
 
-	public ExecutableElement getFactoryMethod() {
+	ExecutableElement getFactoryMethod() {
 		return this.factoryMethod;
 	}
 
-	public S getSource() {
+	S getSource() {
 		return this.source;
 	}
 
-	public String getName() {
+	String getName() {
 		return this.name;
 	}
 
-	public TypeMirror getType() {
+	TypeMirror getType() {
 		return this.type;
 	}
 
-	public VariableElement getField() {
+	VariableElement getField() {
 		return this.field;
 	}
 
-	public ExecutableElement getGetter() {
+	ExecutableElement getGetter() {
 		return this.getter;
 	}
 
-	public ExecutableElement getSetter() {
+	ExecutableElement getSetter() {
 		return this.setter;
 	}
 
@@ -101,7 +101,7 @@ abstract class PropertyDescriptor<S extends Element> {
 
 	protected ItemDeprecation resolveItemDeprecation(MetadataGenerationEnvironment environment) {
 		boolean deprecated = environment.isDeprecated(getGetter()) || environment.isDeprecated(getSetter())
-				|| environment.isDeprecated(getFactoryMethod());
+				|| environment.isDeprecated(getField()) || environment.isDeprecated(getFactoryMethod());
 		return deprecated ? environment.resolveItemDeprecation(getGetter()) : null;
 	}
 
@@ -119,10 +119,10 @@ abstract class PropertyDescriptor<S extends Element> {
 		if (isCyclePresent(typeElement, getOwnerElement())) {
 			return false;
 		}
-		return isParentTheSame(typeElement, getOwnerElement());
+		return isParentTheSame(environment, typeElement, getOwnerElement());
 	}
 
-	public ItemMetadata resolveItemMetadata(String prefix, MetadataGenerationEnvironment environment) {
+	ItemMetadata resolveItemMetadata(String prefix, MetadataGenerationEnvironment environment) {
 		if (isNested(environment)) {
 			return resolveItemMetadataGroup(prefix, environment);
 		}
@@ -169,11 +169,20 @@ abstract class PropertyDescriptor<S extends Element> {
 		return isCyclePresent(returnType, element.getEnclosingElement());
 	}
 
-	private boolean isParentTheSame(Element returnType, TypeElement element) {
+	private boolean isParentTheSame(MetadataGenerationEnvironment environment, Element returnType,
+			TypeElement element) {
 		if (returnType == null || element == null) {
 			return false;
 		}
-		return getTopLevelType(returnType).equals(getTopLevelType(element));
+		returnType = getTopLevelType(returnType);
+		Element candidate = element;
+		while (candidate != null && candidate instanceof TypeElement) {
+			if (returnType.equals(getTopLevelType(candidate))) {
+				return true;
+			}
+			candidate = environment.getTypeUtils().asElement(((TypeElement) candidate).getSuperclass());
+		}
+		return false;
 	}
 
 	private Element getTopLevelType(Element element) {

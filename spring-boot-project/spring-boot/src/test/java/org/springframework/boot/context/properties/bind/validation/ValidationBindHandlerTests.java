@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,14 @@
 package org.springframework.boot.context.properties.bind.validation;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
-import javax.validation.Valid;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
-
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -35,11 +36,16 @@ import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.boot.context.properties.source.ConfigurationProperty;
 import org.springframework.boot.context.properties.source.ConfigurationPropertyName;
 import org.springframework.boot.context.properties.source.ConfigurationPropertySource;
+import org.springframework.boot.context.properties.source.ConfigurationPropertySources;
 import org.springframework.boot.context.properties.source.MockConfigurationPropertySource;
 import org.springframework.boot.origin.Origin;
 import org.springframework.core.convert.ConverterNotFoundException;
+import org.springframework.core.env.MapPropertySource;
+import org.springframework.validation.Errors;
 import org.springframework.validation.FieldError;
 import org.springframework.validation.ObjectError;
+import org.springframework.validation.ValidationUtils;
+import org.springframework.validation.Validator;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
@@ -118,12 +124,13 @@ class ValidationBindHandlerTests {
 	}
 
 	@Test
-	void bindShouldFailWithAccessToName() {
+	void bindShouldFailWithAccessToNameAndValue() {
 		this.sources.add(new MockConfigurationPropertySource("foo.nested.age", "4"));
 		BindValidationException cause = bindAndExpectValidationError(() -> this.binder.bind(
 				ConfigurationPropertyName.of("foo"), Bindable.of(ExampleValidatedWithNestedBean.class), this.handler));
-		assertThat(cause.getValidationErrors().getName().toString()).isEqualTo("foo");
+		assertThat(cause.getValidationErrors().getName().toString()).isEqualTo("foo.nested");
 		assertThat(cause.getMessage()).contains("nested.age");
+		assertThat(cause.getMessage()).contains("rejected value [4]");
 	}
 
 	@Test
@@ -167,7 +174,7 @@ class ValidationBindHandlerTests {
 
 	@Test
 	void bindShouldValidateIfOtherHandlersInChainIgnoreError() {
-		TestHandler testHandler = new TestHandler();
+		TestHandler testHandler = new TestHandler(null);
 		this.handler = new ValidationBindHandler(testHandler, this.validator);
 		this.sources.add(new MockConfigurationPropertySource("foo", "hello"));
 		ExampleValidatedBean bean = new ExampleValidatedBean();
@@ -177,65 +184,163 @@ class ValidationBindHandlerTests {
 				.withCauseInstanceOf(BindValidationException.class);
 	}
 
+	@Test
+	void bindShouldValidateIfOtherHandlersInChainReplaceErrorWithResult() {
+		TestHandler testHandler = new TestHandler(new ExampleValidatedBeanSubclass());
+		this.handler = new ValidationBindHandler(testHandler, this.validator);
+		this.sources.add(new MockConfigurationPropertySource("foo", "hello"));
+		this.sources.add(new MockConfigurationPropertySource("foo.age", "bad"));
+		this.sources.add(new MockConfigurationPropertySource("foo.years", "99"));
+		ExampleValidatedBean bean = new ExampleValidatedBean();
+		assertThatExceptionOfType(BindException.class)
+				.isThrownBy(() -> this.binder.bind("foo",
+						Bindable.of(ExampleValidatedBean.class).withExistingValue(bean), this.handler))
+				.withCauseInstanceOf(BindValidationException.class)
+				.satisfies((ex) -> assertThat(ex.getCause()).hasMessageContaining("years"));
+	}
+
+	@Test
+	void validationErrorsForCamelCaseFieldsShouldContainRejectedValue() {
+		this.sources.add(new MockConfigurationPropertySource("foo.inner.person-age", 2));
+		BindValidationException cause = bindAndExpectValidationError(() -> this.binder
+				.bind(ConfigurationPropertyName.of("foo"), Bindable.of(ExampleCamelCase.class), this.handler));
+		assertThat(cause.getMessage()).contains("rejected value [2]");
+	}
+
+	@Test
+	void validationShouldBeSkippedIfPreviousValidationErrorPresent() {
+		this.sources.add(new MockConfigurationPropertySource("foo.inner.person-age", 2));
+		BindValidationException cause = bindAndExpectValidationError(() -> this.binder
+				.bind(ConfigurationPropertyName.of("foo"), Bindable.of(ExampleCamelCase.class), this.handler));
+		FieldError fieldError = (FieldError) cause.getValidationErrors().getAllErrors().get(0);
+		assertThat(fieldError.getField()).isEqualTo("personAge");
+	}
+
+	@Test
+	void validateMapValues() {
+		MockConfigurationPropertySource source = new MockConfigurationPropertySource();
+		source.put("test.items.[itemOne].number", "one");
+		source.put("test.items.[ITEM2].number", "two");
+		this.sources.add(source);
+		Validator validator = getMapValidator();
+		this.handler = new ValidationBindHandler(validator);
+		this.binder.bind(ConfigurationPropertyName.of("test"), Bindable.of(ExampleWithMap.class), this.handler);
+	}
+
+	@Test
+	void validateMapValuesWithNonUniformSource() {
+		Map<String, Object> map = new LinkedHashMap<>();
+		map.put("test.items.itemOne.number", "one");
+		map.put("test.items.ITEM2.number", "two");
+		this.sources.add(ConfigurationPropertySources.from(new MapPropertySource("test", map)).iterator().next());
+		Validator validator = getMapValidator();
+		this.handler = new ValidationBindHandler(validator);
+		this.binder.bind(ConfigurationPropertyName.of("test"), Bindable.of(ExampleWithMap.class), this.handler);
+	}
+
+	private Validator getMapValidator() {
+		return new Validator() {
+
+			@Override
+			public boolean supports(Class<?> clazz) {
+				return ExampleWithMap.class == clazz;
+
+			}
+
+			@Override
+			public void validate(Object target, Errors errors) {
+				ExampleWithMap value = (ExampleWithMap) target;
+				value.getItems().forEach((k, v) -> {
+					try {
+						errors.pushNestedPath("items[" + k + "]");
+						ValidationUtils.rejectIfEmptyOrWhitespace(errors, "number", "NUMBER_ERR");
+					}
+					finally {
+						errors.popNestedPath();
+					}
+				});
+			}
+
+		};
+	}
+
 	private BindValidationException bindAndExpectValidationError(Runnable action) {
 		try {
 			action.run();
 		}
 		catch (BindException ex) {
-			BindValidationException cause = (BindValidationException) ex.getCause();
-			return cause;
+			return (BindValidationException) ex.getCause();
 		}
 		throw new IllegalStateException("Did not throw");
 	}
 
-	public static class ExampleNonValidatedBean {
+	static class ExampleNonValidatedBean {
 
 		@Min(5)
 		private int age;
 
-		public int getAge() {
+		int getAge() {
 			return this.age;
 		}
 
-		public void setAge(int age) {
+		void setAge(int age) {
 			this.age = age;
 		}
 
 	}
 
 	@Validated
-	public static class ExampleValidatedBean {
+	static class ExampleValidatedBean {
 
 		@Min(5)
 		private int age;
 
-		public int getAge() {
+		int getAge() {
 			return this.age;
 		}
 
-		public void setAge(int age) {
+		void setAge(int age) {
 			this.age = age;
 		}
 
 	}
 
+	public static class ExampleValidatedBeanSubclass extends ExampleValidatedBean {
+
+		@Min(100)
+		private int years;
+
+		ExampleValidatedBeanSubclass() {
+			setAge(20);
+		}
+
+		public int getYears() {
+			return this.years;
+		}
+
+		public void setYears(int years) {
+			this.years = years;
+		}
+
+	}
+
 	@Validated
-	public static class ExampleValidatedWithNestedBean {
+	static class ExampleValidatedWithNestedBean {
 
 		@Valid
 		private ExampleNested nested = new ExampleNested();
 
-		public ExampleNested getNested() {
+		ExampleNested getNested() {
 			return this.nested;
 		}
 
-		public void setNested(ExampleNested nested) {
+		void setNested(ExampleNested nested) {
 			this.nested = nested;
 		}
 
 	}
 
-	public static class ExampleNested {
+	static class ExampleNested {
 
 		private String name;
 
@@ -245,47 +350,104 @@ class ValidationBindHandlerTests {
 		@NotNull
 		private String address;
 
-		public String getName() {
+		String getName() {
 			return this.name;
 		}
 
-		public void setName(String name) {
+		void setName(String name) {
 			this.name = name;
 		}
 
-		public int getAge() {
+		int getAge() {
 			return this.age;
 		}
 
-		public void setAge(int age) {
+		void setAge(int age) {
 			this.age = age;
 		}
 
-		public String getAddress() {
+		String getAddress() {
 			return this.address;
 		}
 
-		public void setAddress(String address) {
+		void setAddress(String address) {
 			this.address = address;
 		}
 
 	}
 
 	@Validated
-	public static class ExampleValidatedBeanWithGetterException {
+	static class ExampleCamelCase {
 
-		public int getAge() {
+		@Valid
+		private InnerProperties inner = new InnerProperties();
+
+		InnerProperties getInner() {
+			return this.inner;
+		}
+
+		static class InnerProperties {
+
+			@Min(5)
+			private int personAge;
+
+			int getPersonAge() {
+				return this.personAge;
+			}
+
+			void setPersonAge(int personAge) {
+				this.personAge = personAge;
+			}
+
+		}
+
+	}
+
+	@Validated
+	static class ExampleValidatedBeanWithGetterException {
+
+		int getAge() {
 			throw new RuntimeException();
+		}
+
+	}
+
+	static class ExampleWithMap {
+
+		private Map<String, ExampleMapValue> items = new LinkedHashMap<>();
+
+		Map<String, ExampleMapValue> getItems() {
+			return this.items;
+		}
+
+	}
+
+	static class ExampleMapValue {
+
+		private String number;
+
+		String getNumber() {
+			return this.number;
+		}
+
+		void setNumber(String number) {
+			this.number = number;
 		}
 
 	}
 
 	static class TestHandler extends AbstractBindHandler {
 
+		private Object result;
+
+		TestHandler(Object result) {
+			this.result = result;
+		}
+
 		@Override
 		public Object onFailure(ConfigurationPropertyName name, Bindable<?> target, BindContext context,
 				Exception error) throws Exception {
-			return null;
+			return this.result;
 		}
 
 	}

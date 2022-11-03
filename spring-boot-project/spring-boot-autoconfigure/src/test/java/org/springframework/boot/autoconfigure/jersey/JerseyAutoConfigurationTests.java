@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,12 @@
 package org.springframework.boot.autoconfigure.jersey;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.module.jaxb.JaxbAnnotationIntrospector;
+import com.fasterxml.jackson.module.jakarta.xmlbind.JakartaXmlBindAnnotationIntrospector;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration;
-import org.springframework.boot.autoconfigure.logging.ConditionEvaluationReportLoggingListener;
-import org.springframework.boot.logging.LogLevel;
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -43,7 +41,6 @@ class JerseyAutoConfigurationTests {
 
 	private final WebApplicationContextRunner contextRunner = new WebApplicationContextRunner()
 			.withConfiguration(AutoConfigurations.of(JerseyAutoConfiguration.class))
-			.withInitializer(new ConditionEvaluationReportLoggingListener(LogLevel.INFO))
 			.withUserConfiguration(ResourceConfigConfiguration.class);
 
 	@Test
@@ -76,27 +73,27 @@ class JerseyAutoConfigurationTests {
 		this.contextRunner.withConfiguration(AutoConfigurations.of(JacksonAutoConfiguration.class)).run((context) -> {
 			ObjectMapper objectMapper = context.getBean(ObjectMapper.class);
 			assertThat(objectMapper.getSerializationConfig().getAnnotationIntrospector().allIntrospectors().stream()
-					.filter(JaxbAnnotationIntrospector.class::isInstance)).hasSize(1);
+					.filter(JakartaXmlBindAnnotationIntrospector.class::isInstance)).hasSize(1);
 		});
 	}
 
 	@Test
 	void whenJaxbIsNotAvailableTheObjectMapperCustomizationBacksOff() {
 		this.contextRunner.withConfiguration(AutoConfigurations.of(JacksonAutoConfiguration.class))
-				.withClassLoader(new FilteredClassLoader("javax.xml.bind.annotation")).run((context) -> {
+				.withClassLoader(new FilteredClassLoader("jakarta.xml.bind.annotation")).run((context) -> {
 					ObjectMapper objectMapper = context.getBean(ObjectMapper.class);
 					assertThat(objectMapper.getSerializationConfig().getAnnotationIntrospector().allIntrospectors()
-							.stream().filter(JaxbAnnotationIntrospector.class::isInstance)).isEmpty();
+							.stream().filter(JakartaXmlBindAnnotationIntrospector.class::isInstance)).isEmpty();
 				});
 	}
 
 	@Test
 	void whenJacksonJaxbModuleIsNotAvailableTheObjectMapperCustomizationBacksOff() {
 		this.contextRunner.withConfiguration(AutoConfigurations.of(JacksonAutoConfiguration.class))
-				.withClassLoader(new FilteredClassLoader(JaxbAnnotationIntrospector.class)).run((context) -> {
+				.withClassLoader(new FilteredClassLoader(JakartaXmlBindAnnotationIntrospector.class)).run((context) -> {
 					ObjectMapper objectMapper = context.getBean(ObjectMapper.class);
 					assertThat(objectMapper.getSerializationConfig().getAnnotationIntrospector().allIntrospectors()
-							.stream().filter(JaxbAnnotationIntrospector.class::isInstance)).isEmpty();
+							.stream().filter(JakartaXmlBindAnnotationIntrospector.class::isInstance)).isEmpty();
 				});
 	}
 
@@ -104,7 +101,7 @@ class JerseyAutoConfigurationTests {
 	static class ResourceConfigConfiguration {
 
 		@Bean
-		public ResourceConfig resourceConfig() {
+		ResourceConfig resourceConfig() {
 			return new ResourceConfig();
 		}
 
@@ -114,7 +111,7 @@ class JerseyAutoConfigurationTests {
 	static class RequestContextFilterConfiguration {
 
 		@Bean
-		public RequestContextFilter requestContextFilter() {
+		RequestContextFilter requestContextFilter() {
 			return new RequestContextFilter();
 		}
 
@@ -124,7 +121,7 @@ class JerseyAutoConfigurationTests {
 	static class RequestContextFilterRegistrationConfiguration {
 
 		@Bean
-		public FilterRegistrationBean<RequestContextFilter> customRequestContextFilterRegistration() {
+		FilterRegistrationBean<RequestContextFilter> customRequestContextFilterRegistration() {
 			return new FilterRegistrationBean<>(new RequestContextFilter());
 		}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.springframework.boot.context.properties.scan.valid;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -21,7 +22,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.context.properties.scan.valid.b.BScanConfiguration;
 
 /**
- * Used for testing {@link ConfigurationProperties} scanning.
+ * Used for testing {@link ConfigurationProperties @ConfigurationProperties} scanning.
  *
  * @author Madhura Bhave
  */
@@ -46,23 +47,20 @@ public class ConfigurationPropertiesScanConfiguration {
 	}
 
 	@ConfigurationProperties(prefix = "bar")
-	public static class BarProperties {
+	static class BarProperties {
 
-		public BarProperties(String foo) {
-
+		BarProperties(String foo) {
 		}
 
 	}
 
 	@ConfigurationProperties(prefix = "bing")
-	public static class BingProperties {
+	static class BingProperties {
 
-		public BingProperties() {
-
+		BingProperties() {
 		}
 
-		public BingProperties(String foo) {
-
+		BingProperties(String foo) {
 		}
 
 	}

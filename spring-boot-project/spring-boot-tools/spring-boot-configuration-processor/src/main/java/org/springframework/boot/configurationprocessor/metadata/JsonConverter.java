@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import org.springframework.boot.configurationprocessor.json.JSONArray;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
@@ -37,10 +36,10 @@ class JsonConverter {
 
 	private static final ItemMetadataComparator ITEM_COMPARATOR = new ItemMetadataComparator();
 
-	public JSONArray toJsonArray(ConfigurationMetadata metadata, ItemType itemType) throws Exception {
+	JSONArray toJsonArray(ConfigurationMetadata metadata, ItemType itemType) throws Exception {
 		JSONArray jsonArray = new JSONArray();
 		List<ItemMetadata> items = metadata.getItems().stream().filter((item) -> item.isOfItemType(itemType))
-				.sorted(ITEM_COMPARATOR).collect(Collectors.toList());
+				.sorted(ITEM_COMPARATOR).toList();
 		for (ItemMetadata item : items) {
 			if (item.isOfItemType(itemType)) {
 				jsonArray.put(toJsonObject(item));
@@ -49,7 +48,7 @@ class JsonConverter {
 		return jsonArray;
 	}
 
-	public JSONArray toJsonArray(Collection<ItemHint> hints) throws Exception {
+	JSONArray toJsonArray(Collection<ItemHint> hints) throws Exception {
 		JSONArray jsonArray = new JSONArray();
 		for (ItemHint hint : hints) {
 			jsonArray.put(toJsonObject(hint));
@@ -57,7 +56,7 @@ class JsonConverter {
 		return jsonArray;
 	}
 
-	public JSONObject toJsonObject(ItemMetadata item) throws Exception {
+	JSONObject toJsonObject(ItemMetadata item) throws Exception {
 		JSONObject jsonObject = new JSONObject();
 		jsonObject.put("name", item.getName());
 		jsonObject.putOpt("type", item.getType());
@@ -160,29 +159,22 @@ class JsonConverter {
 
 	private static class ItemMetadataComparator implements Comparator<ItemMetadata> {
 
+		private static final Comparator<ItemMetadata> GROUP = Comparator.comparing(ItemMetadata::getName)
+				.thenComparing(ItemMetadata::getSourceType, Comparator.nullsFirst(Comparator.naturalOrder()));
+
+		private static final Comparator<ItemMetadata> ITEM = Comparator.comparing(ItemMetadataComparator::isDeprecated)
+				.thenComparing(ItemMetadata::getName)
+				.thenComparing(ItemMetadata::getSourceType, Comparator.nullsFirst(Comparator.naturalOrder()));
+
 		@Override
 		public int compare(ItemMetadata o1, ItemMetadata o2) {
 			if (o1.isOfItemType(ItemType.GROUP)) {
-				return compareGroup(o1, o2);
+				return GROUP.compare(o1, o2);
 			}
-			return compareProperty(o1, o2);
+			return ITEM.compare(o1, o2);
 		}
 
-		private int compareGroup(ItemMetadata o1, ItemMetadata o2) {
-			return o1.getName().compareTo(o2.getName());
-		}
-
-		private int compareProperty(ItemMetadata o1, ItemMetadata o2) {
-			if (isDeprecated(o1) && !isDeprecated(o2)) {
-				return 1;
-			}
-			if (isDeprecated(o2) && !isDeprecated(o1)) {
-				return -1;
-			}
-			return o1.getName().compareTo(o2.getName());
-		}
-
-		private boolean isDeprecated(ItemMetadata item) {
+		private static boolean isDeprecated(ItemMetadata item) {
 			return item.getDeprecation() != null;
 		}
 

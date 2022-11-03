@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,9 +35,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 
 /**
  * Test {@link SpyBean @SpyBean} when mixed with Spring AOP.
@@ -54,7 +53,7 @@ class SpyBeanWithAopProxyAndNotProxyTargetAwareTests {
 	@Test
 	void verifyShouldUseProxyTarget() {
 		this.dateService.getDate(false);
-		verify(this.dateService, times(1)).getDate(false);
+		then(this.dateService).should().getDate(false);
 		assertThatExceptionOfType(UnfinishedVerificationException.class).isThrownBy(() -> reset(this.dateService));
 	}
 
@@ -64,14 +63,14 @@ class SpyBeanWithAopProxyAndNotProxyTargetAwareTests {
 	static class Config {
 
 		@Bean
-		public CacheResolver cacheResolver(CacheManager cacheManager) {
+		CacheResolver cacheResolver(CacheManager cacheManager) {
 			SimpleCacheResolver resolver = new SimpleCacheResolver();
 			resolver.setCacheManager(cacheManager);
 			return resolver;
 		}
 
 		@Bean
-		public ConcurrentMapCacheManager cacheManager() {
+		ConcurrentMapCacheManager cacheManager() {
 			ConcurrentMapCacheManager cacheManager = new ConcurrentMapCacheManager();
 			cacheManager.setCacheNames(Arrays.asList("test"));
 			return cacheManager;
@@ -80,7 +79,7 @@ class SpyBeanWithAopProxyAndNotProxyTargetAwareTests {
 	}
 
 	@Service
-	static class DateService {
+	public static class DateService {
 
 		@Cacheable(cacheNames = "test")
 		public Long getDate(boolean arg) {

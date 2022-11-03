@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,11 @@
 
 package org.springframework.boot.web.servlet.context;
 
-import javax.servlet.GenericServlet;
-import javax.servlet.Servlet;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-
+import jakarta.servlet.GenericServlet;
+import jakarta.servlet.Servlet;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -39,7 +38,7 @@ import org.springframework.web.context.ServletContextAware;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.verify;
+import static org.mockito.BDDMockito.then;
 
 /**
  * Tests for {@link AnnotationConfigServletWebServerApplicationContext}.
@@ -119,7 +118,7 @@ class AnnotationConfigServletWebServerApplicationContextTests {
 				ServletContextAwareEmbeddedConfiguration.class);
 		verifyContext();
 		// You can't initialize the application context and inject the servlet context
-		// because of a cycle - we'd like this to be not null but it never will be
+		// because of a cycle - we'd like this to be not null, but it never will be
 		assertThat(this.context.getBean(ServletContextAwareEmbeddedConfiguration.class).getServletContext()).isNull();
 	}
 
@@ -138,12 +137,11 @@ class AnnotationConfigServletWebServerApplicationContextTests {
 	private void verifyContext() {
 		MockServletWebServerFactory factory = this.context.getBean(MockServletWebServerFactory.class);
 		Servlet servlet = this.context.getBean(Servlet.class);
-		verify(factory.getServletContext()).addServlet("servlet", servlet);
+		then(factory.getServletContext()).should().addServlet("servlet", servlet);
 	}
 
 	@Component
-	@SuppressWarnings("serial")
-	protected static class ExampleServletWithAutowired extends GenericServlet {
+	static class ExampleServletWithAutowired extends GenericServlet {
 
 		@Autowired
 		private SessionScopedComponent component;
@@ -157,23 +155,23 @@ class AnnotationConfigServletWebServerApplicationContextTests {
 
 	@Component
 	@Scope(value = "session", proxyMode = ScopedProxyMode.TARGET_CLASS)
-	protected static class SessionScopedComponent {
+	static class SessionScopedComponent {
 
 	}
 
 	@Configuration(proxyBeanMethods = false)
 	@EnableWebMvc
-	public static class ServletContextAwareEmbeddedConfiguration implements ServletContextAware {
+	static class ServletContextAwareEmbeddedConfiguration implements ServletContextAware {
 
 		private ServletContext servletContext;
 
 		@Bean
-		public ServletWebServerFactory webServerFactory() {
+		ServletWebServerFactory webServerFactory() {
 			return new MockServletWebServerFactory();
 		}
 
 		@Bean
-		public Servlet servlet() {
+		Servlet servlet() {
 			return new MockServlet();
 		}
 
@@ -182,17 +180,17 @@ class AnnotationConfigServletWebServerApplicationContextTests {
 			this.servletContext = servletContext;
 		}
 
-		public ServletContext getServletContext() {
+		ServletContext getServletContext() {
 			return this.servletContext;
 		}
 
 	}
 
 	@Configuration(proxyBeanMethods = false)
-	public static class WebServerConfiguration {
+	static class WebServerConfiguration {
 
 		@Bean
-		public ServletWebServerFactory webServerFactory() {
+		ServletWebServerFactory webServerFactory() {
 			return new MockServletWebServerFactory();
 		}
 
@@ -200,12 +198,12 @@ class AnnotationConfigServletWebServerApplicationContextTests {
 
 	@Configuration(proxyBeanMethods = false)
 	@EnableWebMvc
-	public static class ServletContextAwareConfiguration implements ServletContextAware {
+	static class ServletContextAwareConfiguration implements ServletContextAware {
 
 		private ServletContext servletContext;
 
 		@Bean
-		public Servlet servlet() {
+		Servlet servlet() {
 			return new MockServlet();
 		}
 
@@ -214,7 +212,7 @@ class AnnotationConfigServletWebServerApplicationContextTests {
 			this.servletContext = servletContext;
 		}
 
-		public ServletContext getServletContext() {
+		ServletContext getServletContext() {
 			return this.servletContext;
 		}
 

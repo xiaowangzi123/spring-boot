@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,13 @@
 
 package org.springframework.boot.autoconfigure.jdbc;
 
+import java.sql.SQLException;
+
 import javax.sql.DataSource;
 
 import com.zaxxer.hikari.HikariDataSource;
+import oracle.jdbc.OracleConnection;
+import oracle.ucp.jdbc.PoolDataSourceImpl;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -35,6 +39,7 @@ import org.springframework.util.StringUtils;
  * @author Dave Syer
  * @author Phillip Webb
  * @author Stephane Nicoll
+ * @author Fabio Grassi
  */
 abstract class DataSourceConfiguration {
 
@@ -55,7 +60,7 @@ abstract class DataSourceConfiguration {
 
 		@Bean
 		@ConfigurationProperties(prefix = "spring.datasource.tomcat")
-		public org.apache.tomcat.jdbc.pool.DataSource dataSource(DataSourceProperties properties) {
+		org.apache.tomcat.jdbc.pool.DataSource dataSource(DataSourceProperties properties) {
 			org.apache.tomcat.jdbc.pool.DataSource dataSource = createDataSource(properties,
 					org.apache.tomcat.jdbc.pool.DataSource.class);
 			DatabaseDriver databaseDriver = DatabaseDriver.fromJdbcUrl(properties.determineUrl());
@@ -81,7 +86,7 @@ abstract class DataSourceConfiguration {
 
 		@Bean
 		@ConfigurationProperties(prefix = "spring.datasource.hikari")
-		public HikariDataSource dataSource(DataSourceProperties properties) {
+		HikariDataSource dataSource(DataSourceProperties properties) {
 			HikariDataSource dataSource = createDataSource(properties, HikariDataSource.class);
 			if (StringUtils.hasText(properties.getName())) {
 				dataSource.setPoolName(properties.getName());
@@ -103,8 +108,31 @@ abstract class DataSourceConfiguration {
 
 		@Bean
 		@ConfigurationProperties(prefix = "spring.datasource.dbcp2")
-		public org.apache.commons.dbcp2.BasicDataSource dataSource(DataSourceProperties properties) {
+		org.apache.commons.dbcp2.BasicDataSource dataSource(DataSourceProperties properties) {
 			return createDataSource(properties, org.apache.commons.dbcp2.BasicDataSource.class);
+		}
+
+	}
+
+	/**
+	 * Oracle UCP DataSource configuration.
+	 */
+	@Configuration(proxyBeanMethods = false)
+	@ConditionalOnClass({ PoolDataSourceImpl.class, OracleConnection.class })
+	@ConditionalOnMissingBean(DataSource.class)
+	@ConditionalOnProperty(name = "spring.datasource.type", havingValue = "oracle.ucp.jdbc.PoolDataSource",
+			matchIfMissing = true)
+	static class OracleUcp {
+
+		@Bean
+		@ConfigurationProperties(prefix = "spring.datasource.oracleucp")
+		PoolDataSourceImpl dataSource(DataSourceProperties properties) throws SQLException {
+			PoolDataSourceImpl dataSource = createDataSource(properties, PoolDataSourceImpl.class);
+			dataSource.setValidateConnectionOnBorrow(true);
+			if (StringUtils.hasText(properties.getName())) {
+				dataSource.setConnectionPoolName(properties.getName());
+			}
+			return dataSource;
 		}
 
 	}
@@ -118,7 +146,7 @@ abstract class DataSourceConfiguration {
 	static class Generic {
 
 		@Bean
-		public DataSource dataSource(DataSourceProperties properties) {
+		DataSource dataSource(DataSourceProperties properties) {
 			return properties.initializeDataSourceBuilder().build();
 		}
 

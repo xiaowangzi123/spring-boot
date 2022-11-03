@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ class UnboundConfigurationPropertyFailureAnalyzerTests {
 	}
 
 	private static String failure(String property, String value, String origin, String reason) {
-		return String.format("Property: %s%n    Value: %s%n    Origin: %s%n    Reason: %s", property, value, origin,
+		return String.format("Property: %s%n    Value: \"%s\"%n    Origin: %s%n    Reason: %s", property, value, origin,
 				reason);
 	}
 
@@ -91,7 +91,7 @@ class UnboundConfigurationPropertyFailureAnalyzerTests {
 		MutablePropertySources sources = context.getEnvironment().getPropertySources();
 		Map<String, Object> map = new HashMap<>();
 		for (String pair : environment) {
-			int index = pair.indexOf("=");
+			int index = pair.indexOf('=');
 			String key = (index > 0) ? pair.substring(0, index) : pair;
 			String value = (index > 0) ? pair.substring(index + 1) : "";
 			map.put(key.trim(), value.trim());
@@ -109,11 +109,11 @@ class UnboundConfigurationPropertyFailureAnalyzerTests {
 
 		private List<String> listValue;
 
-		public List<String> getListValue() {
+		List<String> getListValue() {
 			return this.listValue;
 		}
 
-		public void setListValue(List<String> listValue) {
+		void setListValue(List<String> listValue) {
 			this.listValue = listValue;
 		}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -80,7 +80,7 @@ class ControllerEndpointHandlerMappingIntegrationTests {
 	@Test
 	void post() {
 		this.contextRunner.run(withWebTestClient((webTestClient) -> webTestClient.post().uri("/actuator/example/two")
-				.syncBody(Collections.singletonMap("id", "test")).exchange().expectStatus().isCreated().expectHeader()
+				.bodyValue(Collections.singletonMap("id", "test")).exchange().expectStatus().isCreated().expectHeader()
 				.valueEquals(HttpHeaders.LOCATION, "/example/test")));
 	}
 
@@ -97,7 +97,7 @@ class ControllerEndpointHandlerMappingIntegrationTests {
 	private WebTestClient createWebTestClient(int port) {
 		DefaultUriBuilderFactory uriBuilderFactory = new DefaultUriBuilderFactory("http://localhost:" + port);
 		uriBuilderFactory.setEncodingMode(DefaultUriBuilderFactory.EncodingMode.NONE);
-		return WebTestClient.bindToServer().uriBuilderFactory(uriBuilderFactory).responseTimeout(Duration.ofMinutes(2))
+		return WebTestClient.bindToServer().uriBuilderFactory(uriBuilderFactory).responseTimeout(Duration.ofMinutes(5))
 				.build();
 	}
 
@@ -107,23 +107,22 @@ class ControllerEndpointHandlerMappingIntegrationTests {
 	static class EndpointConfiguration {
 
 		@Bean
-		public NettyReactiveWebServerFactory netty() {
+		NettyReactiveWebServerFactory netty() {
 			return new NettyReactiveWebServerFactory(0);
 		}
 
 		@Bean
-		public HttpHandler httpHandler(ApplicationContext applicationContext) {
+		HttpHandler httpHandler(ApplicationContext applicationContext) {
 			return WebHttpHandlerBuilder.applicationContext(applicationContext).build();
 		}
 
 		@Bean
-		public ControllerEndpointDiscoverer webEndpointDiscoverer(ApplicationContext applicationContext) {
+		ControllerEndpointDiscoverer webEndpointDiscoverer(ApplicationContext applicationContext) {
 			return new ControllerEndpointDiscoverer(applicationContext, null, Collections.emptyList());
 		}
 
 		@Bean
-		public ControllerEndpointHandlerMapping webEndpointHandlerMapping(
-				ControllerEndpointsSupplier endpointsSupplier) {
+		ControllerEndpointHandlerMapping webEndpointHandlerMapping(ControllerEndpointsSupplier endpointsSupplier) {
 			return new ControllerEndpointHandlerMapping(new EndpointMapping("actuator"),
 					endpointsSupplier.getEndpoints(), null);
 		}
@@ -131,15 +130,15 @@ class ControllerEndpointHandlerMappingIntegrationTests {
 	}
 
 	@RestControllerEndpoint(id = "example")
-	public static class ExampleWebFluxEndpoint {
+	static class ExampleWebFluxEndpoint {
 
 		@GetMapping(path = "one", produces = MediaType.TEXT_PLAIN_VALUE)
-		public String one() {
+		String one() {
 			return "One";
 		}
 
 		@PostMapping("/two")
-		public ResponseEntity<String> two(@RequestBody Map<String, Object> content) {
+		ResponseEntity<String> two(@RequestBody Map<String, Object> content) {
 			return ResponseEntity.created(URI.create("/example/" + content.get("id"))).build();
 		}
 

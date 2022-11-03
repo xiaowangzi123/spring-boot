@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class DataSourceJmxConfigurationTests {
 
 	private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
-			.withPropertyValues("spring.datasource.url=" + "jdbc:hsqldb:mem:test-" + UUID.randomUUID())
+			.withPropertyValues("spring.datasource.url=jdbc:hsqldb:mem:test-" + UUID.randomUUID())
 			.withConfiguration(AutoConfigurations.of(JmxAutoConfiguration.class, DataSourceAutoConfiguration.class));
 
 	@Test
@@ -63,7 +63,11 @@ class DataSourceJmxConfigurationTests {
 						"spring.datasource.name=" + poolName, "spring.datasource.hikari.register-mbeans=true")
 				.run((context) -> {
 					assertThat(context).hasSingleBean(HikariDataSource.class);
-					assertThat(context.getBean(HikariDataSource.class).isRegisterMbeans()).isTrue();
+					HikariDataSource hikariDataSource = context.getBean(HikariDataSource.class);
+					assertThat(hikariDataSource.isRegisterMbeans()).isTrue();
+					// Ensure that the pool has been initialized, triggering MBean
+					// registration
+					hikariDataSource.getConnection().close();
 					MBeanServer mBeanServer = context.getBean(MBeanServer.class);
 					validateHikariMBeansRegistration(mBeanServer, poolName, true);
 				});
@@ -77,23 +81,30 @@ class DataSourceJmxConfigurationTests {
 		this.contextRunner.withPropertyValues("spring.datasource.type=" + HikariDataSource.class.getName(),
 				"spring.datasource.hikari.register-mbeans=true").run((context) -> {
 					assertThat(context).hasSingleBean(HikariDataSource.class);
-					assertThat(context.getBean(HikariDataSource.class).isRegisterMbeans()).isTrue();
+					HikariDataSource hikariDataSource = context.getBean(HikariDataSource.class);
+					assertThat(hikariDataSource.isRegisterMbeans()).isTrue();
+					// Ensure that the pool has been initialized, triggering MBean
+					// registration
+					hikariDataSource.getConnection().close();
 					// We can't rely on the number of MBeans so we're checking that the
-					// pool and pool
-					// config MBeans were registered
+					// pool and pool config MBeans were registered
 					assertThat(mBeanServer.queryMBeans(new ObjectName("com.zaxxer.hikari:type=*"), null).size())
 							.isEqualTo(existingInstances.size() + 2);
 				});
 	}
 
 	@Test
-	void hikariAutoConfiguredUsesJmsFlag() {
+	void hikariAutoConfiguredUsesJmxFlag() {
 		String poolName = UUID.randomUUID().toString();
 		this.contextRunner.withPropertyValues("spring.datasource.type=" + HikariDataSource.class.getName(),
 				"spring.jmx.enabled=false", "spring.datasource.name=" + poolName,
 				"spring.datasource.hikari.register-mbeans=true").run((context) -> {
 					assertThat(context).hasSingleBean(HikariDataSource.class);
-					assertThat(context.getBean(HikariDataSource.class).isRegisterMbeans()).isTrue();
+					HikariDataSource hikariDataSource = context.getBean(HikariDataSource.class);
+					assertThat(hikariDataSource.isRegisterMbeans()).isTrue();
+					// Ensure that the pool has been initialized, triggering MBean
+					// registration
+					hikariDataSource.getConnection().close();
 					// Hikari can still register mBeans
 					validateHikariMBeansRegistration(ManagementFactory.getPlatformMBeanServer(), poolName, true);
 				});
@@ -111,6 +122,9 @@ class DataSourceJmxConfigurationTests {
 					HikariDataSource hikariDataSource = context.getBean(javax.sql.DataSource.class)
 							.unwrap(HikariDataSource.class);
 					assertThat(hikariDataSource.isRegisterMbeans()).isTrue();
+					// Ensure that the pool has been initialized, triggering MBean
+					// registration
+					hikariDataSource.getConnection().close();
 					MBeanServer mBeanServer = context.getBean(MBeanServer.class);
 					validateHikariMBeansRegistration(mBeanServer, poolName, true);
 				});
@@ -167,13 +181,13 @@ class DataSourceJmxConfigurationTests {
 	static class DataSourceProxyConfiguration {
 
 		@Bean
-		public static DataSourceBeanPostProcessor dataSourceBeanPostProcessor() {
+		static DataSourceBeanPostProcessor dataSourceBeanPostProcessor() {
 			return new DataSourceBeanPostProcessor();
 		}
 
 	}
 
-	private static class DataSourceBeanPostProcessor implements BeanPostProcessor {
+	static class DataSourceBeanPostProcessor implements BeanPostProcessor {
 
 		@Override
 		public Object postProcessAfterInitialization(Object bean, String beanName) {
@@ -189,14 +203,12 @@ class DataSourceJmxConfigurationTests {
 	static class DataSourceDelegateConfiguration {
 
 		@Bean
-		public static DataSourceBeanPostProcessor dataSourceBeanPostProcessor() {
+		static DataSourceBeanPostProcessor dataSourceBeanPostProcessor() {
 			return new DataSourceBeanPostProcessor() {
 				@Override
 				public Object postProcessAfterInitialization(Object bean, String beanName) {
-					if (bean instanceof javax.sql.DataSource) {
-						return new DelegatingDataSource((javax.sql.DataSource) bean);
-					}
-					return bean;
+					return (bean instanceof javax.sql.DataSource)
+							? new DelegatingDataSource((javax.sql.DataSource) bean) : bean;
 				}
 			};
 		}

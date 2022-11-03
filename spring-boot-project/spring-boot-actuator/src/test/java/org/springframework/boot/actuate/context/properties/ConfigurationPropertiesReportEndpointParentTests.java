@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,12 @@
 
 package org.springframework.boot.actuate.context.properties;
 
+import java.util.Collections;
+
 import org.junit.jupiter.api.Test;
 
 import org.springframework.boot.actuate.context.properties.ConfigurationPropertiesReportEndpoint.ApplicationConfigurationProperties;
+import org.springframework.boot.actuate.endpoint.Show;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -71,10 +74,10 @@ class ConfigurationPropertiesReportEndpointParentTests {
 
 	@Configuration(proxyBeanMethods = false)
 	@EnableConfigurationProperties
-	public static class Parent {
+	static class Parent {
 
 		@Bean
-		public TestProperties testProperties() {
+		TestProperties testProperties() {
 			return new TestProperties();
 		}
 
@@ -82,15 +85,15 @@ class ConfigurationPropertiesReportEndpointParentTests {
 
 	@Configuration(proxyBeanMethods = false)
 	@EnableConfigurationProperties
-	public static class ClassConfigurationProperties {
+	static class ClassConfigurationProperties {
 
 		@Bean
-		public ConfigurationPropertiesReportEndpoint endpoint() {
-			return new ConfigurationPropertiesReportEndpoint();
+		ConfigurationPropertiesReportEndpoint endpoint() {
+			return new ConfigurationPropertiesReportEndpoint(Collections.emptyList(), Show.ALWAYS);
 		}
 
 		@Bean
-		public TestProperties someProperties() {
+		TestProperties someProperties() {
 			return new TestProperties();
 		}
 
@@ -98,35 +101,35 @@ class ConfigurationPropertiesReportEndpointParentTests {
 
 	@Configuration(proxyBeanMethods = false)
 	@EnableConfigurationProperties
-	public static class BeanMethodConfigurationProperties {
+	static class BeanMethodConfigurationProperties {
 
 		@Bean
-		public ConfigurationPropertiesReportEndpoint endpoint() {
-			return new ConfigurationPropertiesReportEndpoint();
+		ConfigurationPropertiesReportEndpoint endpoint() {
+			return new ConfigurationPropertiesReportEndpoint(Collections.emptyList(), Show.ALWAYS);
 		}
 
 		@Bean
 		@ConfigurationProperties(prefix = "other")
-		public OtherProperties otherProperties() {
+		OtherProperties otherProperties() {
 			return new OtherProperties();
 		}
 
 	}
 
-	public static class OtherProperties {
+	static class OtherProperties {
 
 	}
 
 	@ConfigurationProperties(prefix = "test")
-	public static class TestProperties {
+	static class TestProperties {
 
 		private String myTestProperty = "654321";
 
-		public String getMyTestProperty() {
+		String getMyTestProperty() {
 			return this.myTestProperty;
 		}
 
-		public void setMyTestProperty(String myTestProperty) {
+		void setMyTestProperty(String myTestProperty) {
 			this.myTestProperty = myTestProperty;
 		}
 

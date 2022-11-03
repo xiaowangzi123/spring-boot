@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class MeterRegistryCustomizerTests {
 
-	private ApplicationContextRunner contextRunner = new ApplicationContextRunner()
+	private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
 			.with(MetricsRun.limitedTo(AtlasMetricsExportAutoConfiguration.class,
 					PrometheusMetricsExportAutoConfiguration.class))
 			.withConfiguration(AutoConfigurations.of(JvmMetricsAutoConfiguration.class));
@@ -74,17 +74,17 @@ class MeterRegistryCustomizerTests {
 	static class MeterRegistryCustomizerConfiguration {
 
 		@Bean
-		public MeterRegistryCustomizer<MeterRegistry> commonTags() {
+		MeterRegistryCustomizer<MeterRegistry> commonTags() {
 			return (registry) -> registry.config().commonTags("region", "us-east-1");
 		}
 
 		@Bean
-		public MeterRegistryCustomizer<PrometheusMeterRegistry> prometheusOnlyCommonTags() {
+		MeterRegistryCustomizer<PrometheusMeterRegistry> prometheusOnlyCommonTags() {
 			return (registry) -> registry.config().commonTags("job", "myjob");
 		}
 
 		@Bean
-		public MyThing myThing(MeterRegistry registry) {
+		MyThing myThing(MeterRegistry registry) {
 			registry.gauge("my.thing", 0);
 			return new MyThing();
 		}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ package org.springframework.boot.actuate.beans;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
@@ -67,7 +66,7 @@ class BeansEndpointTests {
 					.getAutowireCapableBeanFactory();
 			List<String> infrastructureBeans = Stream.of(context.getBeanDefinitionNames())
 					.filter((name) -> BeanDefinition.ROLE_INFRASTRUCTURE == factory.getBeanDefinition(name).getRole())
-					.collect(Collectors.toList());
+					.toList();
 			ApplicationBeans result = context.getBean(BeansEndpoint.class).beans();
 			ContextBeans contextDescriptor = result.getContexts().get(context.getId());
 			Map<String, BeanDescriptor> beans = contextDescriptor.getBeans();
@@ -104,10 +103,10 @@ class BeansEndpointTests {
 	}
 
 	@Configuration(proxyBeanMethods = false)
-	public static class EndpointConfiguration {
+	static class EndpointConfiguration {
 
 		@Bean
-		public BeansEndpoint endpoint(ConfigurableApplicationContext context) {
+		BeansEndpoint endpoint(ConfigurableApplicationContext context) {
 			return new BeansEndpoint(context);
 		}
 
@@ -117,7 +116,7 @@ class BeansEndpointTests {
 	static class BeanConfiguration {
 
 		@Bean
-		public String bean() {
+		String bean() {
 			return "bean";
 		}
 
@@ -128,7 +127,7 @@ class BeansEndpointTests {
 
 		@Lazy
 		@Bean
-		public String lazyBean() {
+		String lazyBean() {
 			return "lazyBean";
 		}
 

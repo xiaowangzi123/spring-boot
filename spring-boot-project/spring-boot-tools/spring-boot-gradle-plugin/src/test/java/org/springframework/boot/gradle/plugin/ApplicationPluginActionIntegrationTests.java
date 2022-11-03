@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,24 +16,29 @@
 
 package org.springframework.boot.gradle.plugin;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.gradle.testkit.runner.BuildResult;
 import org.gradle.testkit.runner.TaskOutcome;
+import org.gradle.util.GradleVersion;
 import org.junit.jupiter.api.TestTemplate;
-import org.junit.jupiter.api.extension.ExtendWith;
 
-import org.springframework.boot.gradle.junit.GradleCompatibilityExtension;
-import org.springframework.boot.gradle.testkit.GradleBuild;
+import org.springframework.boot.gradle.junit.GradleCompatibility;
+import org.springframework.boot.testsupport.gradle.testkit.GradleBuild;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -42,43 +47,43 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * @author Andy Wilkinson
  */
-@ExtendWith(GradleCompatibilityExtension.class)
-public class ApplicationPluginActionIntegrationTests {
+@GradleCompatibility
+class ApplicationPluginActionIntegrationTests {
 
 	GradleBuild gradleBuild;
 
 	@TestTemplate
-	public void noBootDistributionWithoutApplicationPluginApplied() {
+	void noBootDistributionWithoutApplicationPluginApplied() {
 		assertThat(this.gradleBuild.build("distributionExists", "-PdistributionName=boot").getOutput())
 				.contains("boot exists = false");
 	}
 
 	@TestTemplate
-	public void applyingApplicationPluginCreatesBootDistribution() {
+	void applyingApplicationPluginCreatesBootDistribution() {
 		assertThat(this.gradleBuild.build("distributionExists", "-PdistributionName=boot", "-PapplyApplicationPlugin")
 				.getOutput()).contains("boot exists = true");
 	}
 
 	@TestTemplate
-	public void noBootStartScriptsTaskWithoutApplicationPluginApplied() {
+	void noBootStartScriptsTaskWithoutApplicationPluginApplied() {
 		assertThat(this.gradleBuild.build("taskExists", "-PtaskName=bootStartScripts").getOutput())
 				.contains("bootStartScripts exists = false");
 	}
 
 	@TestTemplate
-	public void applyingApplicationPluginCreatesBootStartScriptsTask() {
+	void applyingApplicationPluginCreatesBootStartScriptsTask() {
 		assertThat(this.gradleBuild.build("taskExists", "-PtaskName=bootStartScripts", "-PapplyApplicationPlugin")
 				.getOutput()).contains("bootStartScripts exists = true");
 	}
 
 	@TestTemplate
-	public void createsBootStartScriptsTaskUsesApplicationPluginsDefaultJvmOpts() {
+	void createsBootStartScriptsTaskUsesApplicationPluginsDefaultJvmOpts() {
 		assertThat(this.gradleBuild.build("startScriptsDefaultJvmOpts", "-PapplyApplicationPlugin").getOutput())
 				.contains("bootStartScripts defaultJvmOpts = [-Dcom.example.a=alpha, -Dcom.example.b=bravo]");
 	}
 
 	@TestTemplate
-	public void zipDistributionForJarCanBeBuilt() throws IOException {
+	void zipDistributionForJarCanBeBuilt() throws IOException {
 		assertThat(this.gradleBuild.build("bootDistZip").task(":bootDistZip").getOutcome())
 				.isEqualTo(TaskOutcome.SUCCESS);
 		String name = this.gradleBuild.getProjectDir().getName();
@@ -90,7 +95,7 @@ public class ApplicationPluginActionIntegrationTests {
 	}
 
 	@TestTemplate
-	public void tarDistributionForJarCanBeBuilt() throws IOException {
+	void tarDistributionForJarCanBeBuilt() throws IOException {
 		assertThat(this.gradleBuild.build("bootDistTar").task(":bootDistTar").getOutcome())
 				.isEqualTo(TaskOutcome.SUCCESS);
 		String name = this.gradleBuild.getProjectDir().getName();
@@ -102,7 +107,7 @@ public class ApplicationPluginActionIntegrationTests {
 	}
 
 	@TestTemplate
-	public void zipDistributionForWarCanBeBuilt() throws IOException {
+	void zipDistributionForWarCanBeBuilt() throws IOException {
 		assertThat(this.gradleBuild.build("bootDistZip").task(":bootDistZip").getOutcome())
 				.isEqualTo(TaskOutcome.SUCCESS);
 		String name = this.gradleBuild.getProjectDir().getName();
@@ -114,7 +119,7 @@ public class ApplicationPluginActionIntegrationTests {
 	}
 
 	@TestTemplate
-	public void tarDistributionForWarCanBeBuilt() throws IOException {
+	void tarDistributionForWarCanBeBuilt() throws IOException {
 		assertThat(this.gradleBuild.build("bootDistTar").task(":bootDistTar").getOutcome())
 				.isEqualTo(TaskOutcome.SUCCESS);
 		String name = this.gradleBuild.getProjectDir().getName();
@@ -126,7 +131,7 @@ public class ApplicationPluginActionIntegrationTests {
 	}
 
 	@TestTemplate
-	public void applicationNameCanBeUsedToCustomizeDistributionName() throws IOException {
+	void applicationNameCanBeUsedToCustomizeDistributionName() throws IOException {
 		assertThat(this.gradleBuild.build("bootDistTar").task(":bootDistTar").getOutcome())
 				.isEqualTo(TaskOutcome.SUCCESS);
 		File distribution = new File(this.gradleBuild.getProjectDir(), "build/distributions/custom-boot.tar");
@@ -138,7 +143,7 @@ public class ApplicationPluginActionIntegrationTests {
 	}
 
 	@TestTemplate
-	public void scriptsHaveCorrectPermissions() throws IOException {
+	void scriptsHaveCorrectPermissions() throws IOException {
 		assertThat(this.gradleBuild.build("bootDistTar").task(":bootDistTar").getOutcome())
 				.isEqualTo(TaskOutcome.SUCCESS);
 		String name = this.gradleBuild.getProjectDir().getName();
@@ -153,6 +158,26 @@ public class ApplicationPluginActionIntegrationTests {
 				assertThat(filePermissions).isEqualTo(0755);
 			}
 		});
+	}
+
+	@TestTemplate
+	void taskConfigurationIsAvoided() throws IOException {
+		BuildResult result = this.gradleBuild.build("help");
+		String output = result.getOutput();
+		BufferedReader reader = new BufferedReader(new StringReader(output));
+		String line;
+		Set<String> configured = new HashSet<>();
+		while ((line = reader.readLine()) != null) {
+			if (line.startsWith("Configuring :")) {
+				configured.add(line.substring("Configuring :".length()));
+			}
+		}
+		if (GradleVersion.version(this.gradleBuild.getGradleVersion()).compareTo(GradleVersion.version("7.3.3")) < 0) {
+			assertThat(configured).containsExactly("help");
+		}
+		else {
+			assertThat(configured).containsExactlyInAnyOrder("help", "clean");
+		}
 	}
 
 	private List<String> zipEntryNames(File distribution) throws IOException {

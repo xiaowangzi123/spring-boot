@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,60 +16,56 @@
 
 package org.springframework.boot.actuate.autoconfigure.metrics.export.wavefront;
 
+import com.wavefront.sdk.common.WavefrontSender;
 import io.micrometer.core.instrument.Clock;
-import io.micrometer.core.ipc.http.HttpUrlConnectionSender;
 import io.micrometer.wavefront.WavefrontConfig;
 import io.micrometer.wavefront.WavefrontMeterRegistry;
 
 import org.springframework.boot.actuate.autoconfigure.metrics.CompositeMeterRegistryAutoConfiguration;
 import org.springframework.boot.actuate.autoconfigure.metrics.MetricsAutoConfiguration;
+import org.springframework.boot.actuate.autoconfigure.metrics.export.ConditionalOnEnabledMetricsExport;
 import org.springframework.boot.actuate.autoconfigure.metrics.export.simple.SimpleMetricsExportAutoConfiguration;
-import org.springframework.boot.autoconfigure.AutoConfigureAfter;
-import org.springframework.boot.autoconfigure.AutoConfigureBefore;
+import org.springframework.boot.actuate.autoconfigure.wavefront.WavefrontProperties;
+import org.springframework.boot.actuate.autoconfigure.wavefront.WavefrontSenderConfiguration;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 
 /**
  * {@link EnableAutoConfiguration Auto-configuration} for exporting metrics to Wavefront.
  *
  * @author Jon Schneider
  * @author Artsiom Yudovin
+ * @author Stephane Nicoll
  * @since 2.0.0
  */
-@Configuration(proxyBeanMethods = false)
-@AutoConfigureBefore({ CompositeMeterRegistryAutoConfiguration.class, SimpleMetricsExportAutoConfiguration.class })
-@AutoConfigureAfter(MetricsAutoConfiguration.class)
+@AutoConfiguration(
+		before = { CompositeMeterRegistryAutoConfiguration.class, SimpleMetricsExportAutoConfiguration.class },
+		after = MetricsAutoConfiguration.class)
 @ConditionalOnBean(Clock.class)
-@ConditionalOnClass(WavefrontMeterRegistry.class)
-@ConditionalOnProperty(prefix = "management.metrics.export.wavefront", name = "enabled", havingValue = "true",
-		matchIfMissing = true)
+@ConditionalOnClass({ WavefrontMeterRegistry.class, WavefrontSender.class })
+@ConditionalOnEnabledMetricsExport("wavefront")
 @EnableConfigurationProperties(WavefrontProperties.class)
+@Import(WavefrontSenderConfiguration.class)
 public class WavefrontMetricsExportAutoConfiguration {
 
-	private final WavefrontProperties properties;
-
-	public WavefrontMetricsExportAutoConfiguration(WavefrontProperties properties) {
-		this.properties = properties;
+	@Bean
+	@ConditionalOnMissingBean
+	public WavefrontConfig wavefrontConfig(WavefrontProperties properties) {
+		return new WavefrontPropertiesConfigAdapter(properties);
 	}
 
 	@Bean
 	@ConditionalOnMissingBean
-	public WavefrontConfig wavefrontConfig() {
-		return new WavefrontPropertiesConfigAdapter(this.properties);
-	}
-
-	@Bean
-	@ConditionalOnMissingBean
-	public WavefrontMeterRegistry wavefrontMeterRegistry(WavefrontConfig wavefrontConfig, Clock clock) {
-		return WavefrontMeterRegistry.builder(wavefrontConfig).clock(clock).httpClient(
-				new HttpUrlConnectionSender(this.properties.getConnectTimeout(), this.properties.getReadTimeout()))
-				.build();
+	@ConditionalOnBean(WavefrontSender.class)
+	public WavefrontMeterRegistry wavefrontMeterRegistry(WavefrontConfig wavefrontConfig, Clock clock,
+			WavefrontSender wavefrontSender) {
+		return WavefrontMeterRegistry.builder(wavefrontConfig).clock(clock).wavefrontSender(wavefrontSender).build();
 	}
 
 }

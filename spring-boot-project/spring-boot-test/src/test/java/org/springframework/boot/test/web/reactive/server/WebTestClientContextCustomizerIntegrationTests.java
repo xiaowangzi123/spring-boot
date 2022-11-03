@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,11 @@ import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.test.web.reactive.server.WebTestClient.Builder;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.mock;
 
 /**
  * Integration test for {@link WebTestClientContextCustomizer}.
@@ -46,8 +51,12 @@ class WebTestClientContextCustomizerIntegrationTests {
 	@Autowired
 	private WebTestClient webTestClient;
 
+	@Autowired
+	private WebTestClientBuilderCustomizer clientBuilderCustomizer;
+
 	@Test
 	void test() {
+		then(this.clientBuilderCustomizer).should().customize(any(Builder.class));
 		this.webTestClient.get().uri("/").exchange().expectBody(String.class).isEqualTo("hello");
 	}
 
@@ -56,8 +65,13 @@ class WebTestClientContextCustomizerIntegrationTests {
 	static class TestConfig {
 
 		@Bean
-		public TomcatReactiveWebServerFactory webServerFactory() {
+		TomcatReactiveWebServerFactory webServerFactory() {
 			return new TomcatReactiveWebServerFactory(0);
+		}
+
+		@Bean
+		WebTestClientBuilderCustomizer clientBuilderCustomizer() {
+			return mock(WebTestClientBuilderCustomizer.class);
 		}
 
 	}

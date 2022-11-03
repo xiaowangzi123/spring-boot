@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,9 +51,17 @@ class JmxMetricsExportAutoConfigurationTests {
 	}
 
 	@Test
-	void autoConfigurationCanBeDisabled() {
+	void autoConfigurationCanBeDisabledWithDefaultsEnabledProperty() {
 		this.contextRunner.withUserConfiguration(BaseConfiguration.class)
-				.withPropertyValues("management.metrics.export.jmx.enabled=false").run((context) -> assertThat(context)
+				.withPropertyValues("management.defaults.metrics.export.enabled=false")
+				.run((context) -> assertThat(context).doesNotHaveBean(JmxMeterRegistry.class)
+						.doesNotHaveBean(JmxConfig.class));
+	}
+
+	@Test
+	void autoConfigurationCanBeDisabledWithSpecificEnabledProperty() {
+		this.contextRunner.withUserConfiguration(BaseConfiguration.class)
+				.withPropertyValues("management.jmx.metrics.export.enabled=false").run((context) -> assertThat(context)
 						.doesNotHaveBean(JmxMeterRegistry.class).doesNotHaveBean(JmxConfig.class));
 	}
 
@@ -83,7 +91,7 @@ class JmxMetricsExportAutoConfigurationTests {
 	static class BaseConfiguration {
 
 		@Bean
-		public Clock clock() {
+		Clock clock() {
 			return Clock.SYSTEM;
 		}
 
@@ -94,7 +102,7 @@ class JmxMetricsExportAutoConfigurationTests {
 	static class CustomConfigConfiguration {
 
 		@Bean
-		public JmxConfig customConfig() {
+		JmxConfig customConfig() {
 			return (key) -> null;
 		}
 
@@ -105,7 +113,7 @@ class JmxMetricsExportAutoConfigurationTests {
 	static class CustomRegistryConfiguration {
 
 		@Bean
-		public JmxMeterRegistry customRegistry(JmxConfig config, Clock clock) {
+		JmxMeterRegistry customRegistry(JmxConfig config, Clock clock) {
 			return new JmxMeterRegistry(config, clock);
 		}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,8 @@
 
 package org.springframework.boot.autoconfigure.web.servlet;
 
-import javax.servlet.ServletContextEvent;
-import javax.servlet.ServletContextListener;
-
+import jakarta.servlet.ServletContextEvent;
+import jakarta.servlet.ServletContextListener;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.boot.web.embedded.jetty.JettyServletWebServerFactory;
@@ -32,8 +31,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 
 /**
  * Tests for {@link WebServer}s driving {@link ServletContextListener}s correctly
@@ -77,7 +76,7 @@ class ServletWebServerServletContextListenerTests {
 				ServletContextListenerBeanConfiguration.class, configuration);
 		ServletContextListener servletContextListener = context.getBean("servletContextListener",
 				ServletContextListener.class);
-		verify(servletContextListener).contextInitialized(any(ServletContextEvent.class));
+		then(servletContextListener).should().contextInitialized(any(ServletContextEvent.class));
 		context.close();
 	}
 
@@ -86,7 +85,7 @@ class ServletWebServerServletContextListenerTests {
 				ServletListenerRegistrationBeanConfiguration.class, configuration);
 		ServletContextListener servletContextListener = (ServletContextListener) context
 				.getBean("registration", ServletListenerRegistrationBean.class).getListener();
-		verify(servletContextListener).contextInitialized(any(ServletContextEvent.class));
+		then(servletContextListener).should().contextInitialized(any(ServletContextEvent.class));
 		context.close();
 	}
 
@@ -94,7 +93,7 @@ class ServletWebServerServletContextListenerTests {
 	static class TomcatConfiguration {
 
 		@Bean
-		public ServletWebServerFactory webServerFactory() {
+		ServletWebServerFactory webServerFactory() {
 			return new TomcatServletWebServerFactory(0);
 		}
 
@@ -104,7 +103,7 @@ class ServletWebServerServletContextListenerTests {
 	static class JettyConfiguration {
 
 		@Bean
-		public ServletWebServerFactory webServerFactory() {
+		ServletWebServerFactory webServerFactory() {
 			return new JettyServletWebServerFactory(0);
 		}
 
@@ -114,7 +113,7 @@ class ServletWebServerServletContextListenerTests {
 	static class UndertowConfiguration {
 
 		@Bean
-		public ServletWebServerFactory webServerFactory() {
+		ServletWebServerFactory webServerFactory() {
 			return new UndertowServletWebServerFactory(0);
 		}
 
@@ -124,7 +123,7 @@ class ServletWebServerServletContextListenerTests {
 	static class ServletContextListenerBeanConfiguration {
 
 		@Bean
-		public ServletContextListener servletContextListener() {
+		ServletContextListener servletContextListener() {
 			return mock(ServletContextListener.class);
 		}
 
@@ -134,7 +133,7 @@ class ServletWebServerServletContextListenerTests {
 	static class ServletListenerRegistrationBeanConfiguration {
 
 		@Bean
-		public ServletListenerRegistrationBean<ServletContextListener> registration() {
+		ServletListenerRegistrationBean<ServletContextListener> registration() {
 			return new ServletListenerRegistrationBean<>(mock(ServletContextListener.class));
 		}
 

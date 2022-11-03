@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ package org.springframework.boot.actuate.autoconfigure.metrics.export.statsd;
 import io.micrometer.core.instrument.Clock;
 import io.micrometer.statsd.StatsdConfig;
 import io.micrometer.statsd.StatsdMeterRegistry;
-import io.micrometer.statsd.StatsdMetrics;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -47,14 +46,20 @@ class StatsdMetricsExportAutoConfigurationTests {
 
 	@Test
 	void autoConfiguresItsConfigMeterRegistryAndMetrics() {
-		this.contextRunner.withUserConfiguration(BaseConfiguration.class)
-				.run((context) -> assertThat(context).hasSingleBean(StatsdMeterRegistry.class)
-						.hasSingleBean(StatsdConfig.class).hasSingleBean(StatsdMetrics.class));
+		this.contextRunner.withUserConfiguration(BaseConfiguration.class).run((context) -> assertThat(context)
+				.hasSingleBean(StatsdMeterRegistry.class).hasSingleBean(StatsdConfig.class));
 	}
 
 	@Test
-	void autoConfigurationCanBeDisabled() {
-		this.contextRunner.withPropertyValues("management.metrics.export.statsd.enabled=false")
+	void autoConfigurationCanBeDisabledWithDefaultsEnabledProperty() {
+		this.contextRunner.withPropertyValues("management.defaults.metrics.export.enabled=false")
+				.run((context) -> assertThat(context).doesNotHaveBean(StatsdMeterRegistry.class)
+						.doesNotHaveBean(StatsdConfig.class));
+	}
+
+	@Test
+	void autoConfigurationCanBeDisabledWithSpecificEnabledProperty() {
+		this.contextRunner.withPropertyValues("management.statsd.metrics.export.enabled=false")
 				.run((context) -> assertThat(context).doesNotHaveBean(StatsdMeterRegistry.class)
 						.doesNotHaveBean(StatsdConfig.class));
 	}
@@ -85,7 +90,7 @@ class StatsdMetricsExportAutoConfigurationTests {
 	static class BaseConfiguration {
 
 		@Bean
-		public Clock clock() {
+		Clock clock() {
 			return Clock.SYSTEM;
 		}
 
@@ -96,7 +101,7 @@ class StatsdMetricsExportAutoConfigurationTests {
 	static class CustomConfigConfiguration {
 
 		@Bean
-		public StatsdConfig customConfig() {
+		StatsdConfig customConfig() {
 			return (key) -> null;
 		}
 
@@ -107,7 +112,7 @@ class StatsdMetricsExportAutoConfigurationTests {
 	static class CustomRegistryConfiguration {
 
 		@Bean
-		public StatsdMeterRegistry customRegistry(StatsdConfig config, Clock clock) {
+		StatsdMeterRegistry customRegistry(StatsdConfig config, Clock clock) {
 			return new StatsdMeterRegistry(config, clock);
 		}
 

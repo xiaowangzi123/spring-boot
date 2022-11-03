@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,51 +16,79 @@
 
 package org.springframework.boot.actuate.integration;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import java.util.Set;
 
+import org.junit.jupiter.api.Test;
+
+import org.springframework.aot.hint.MemberCategory;
+import org.springframework.aot.hint.RuntimeHints;
+import org.springframework.aot.hint.predicate.RuntimeHintsPredicates;
+import org.springframework.boot.actuate.integration.IntegrationGraphEndpoint.IntegrationGraphEndpointRuntimeHints;
+import org.springframework.integration.graph.CompositeMessageHandlerNode;
+import org.springframework.integration.graph.DiscardingMessageHandlerNode;
+import org.springframework.integration.graph.EndpointNode;
+import org.springframework.integration.graph.ErrorCapableCompositeMessageHandlerNode;
+import org.springframework.integration.graph.ErrorCapableDiscardingMessageHandlerNode;
+import org.springframework.integration.graph.ErrorCapableEndpointNode;
+import org.springframework.integration.graph.ErrorCapableMessageHandlerNode;
+import org.springframework.integration.graph.ErrorCapableRoutingNode;
 import org.springframework.integration.graph.Graph;
 import org.springframework.integration.graph.IntegrationGraphServer;
+import org.springframework.integration.graph.MessageChannelNode;
+import org.springframework.integration.graph.MessageGatewayNode;
+import org.springframework.integration.graph.MessageHandlerNode;
+import org.springframework.integration.graph.MessageProducerNode;
+import org.springframework.integration.graph.MessageSourceNode;
+import org.springframework.integration.graph.PollableChannelNode;
+import org.springframework.integration.graph.RoutingMessageHandlerNode;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 
 /**
  * Tests for {@link IntegrationGraphEndpoint}.
  *
  * @author Tim Ysewyn
+ * @author Moritz Halbritter
  */
 class IntegrationGraphEndpointTests {
 
-	@Mock
-	private IntegrationGraphServer integrationGraphServer;
+	private final IntegrationGraphServer server = mock(IntegrationGraphServer.class);
 
-	@InjectMocks
-	private IntegrationGraphEndpoint integrationGraphEndpoint;
-
-	@BeforeEach
-	void setUp() {
-		MockitoAnnotations.initMocks(this);
-	}
+	private final IntegrationGraphEndpoint endpoint = new IntegrationGraphEndpoint(this.server);
 
 	@Test
 	void readOperationShouldReturnGraph() {
 		Graph mockedGraph = mock(Graph.class);
-		given(this.integrationGraphServer.getGraph()).willReturn(mockedGraph);
-		Graph graph = this.integrationGraphEndpoint.graph();
-		verify(this.integrationGraphServer).getGraph();
+		given(this.server.getGraph()).willReturn(mockedGraph);
+		Graph graph = this.endpoint.graph();
+		then(this.server).should().getGraph();
 		assertThat(graph).isEqualTo(mockedGraph);
 	}
 
 	@Test
 	void writeOperationShouldRebuildGraph() {
-		this.integrationGraphEndpoint.rebuild();
-		verify(this.integrationGraphServer).rebuild();
+		this.endpoint.rebuild();
+		then(this.server).should().rebuild();
+	}
+
+	@Test
+	void shouldRegisterHints() {
+		RuntimeHints runtimeHints = new RuntimeHints();
+		new IntegrationGraphEndpointRuntimeHints().registerHints(runtimeHints, getClass().getClassLoader());
+		Set<Class<?>> bindingTypes = Set.of(Graph.class, EndpointNode.class, CompositeMessageHandlerNode.class,
+				DiscardingMessageHandlerNode.class, ErrorCapableCompositeMessageHandlerNode.class,
+				ErrorCapableDiscardingMessageHandlerNode.class, ErrorCapableEndpointNode.class,
+				ErrorCapableMessageHandlerNode.class, ErrorCapableRoutingNode.class, MessageGatewayNode.class,
+				MessageProducerNode.class, PollableChannelNode.class, MessageChannelNode.class,
+				MessageHandlerNode.class, MessageSourceNode.class, RoutingMessageHandlerNode.class);
+		for (Class<?> bindingType : bindingTypes) {
+			assertThat(RuntimeHintsPredicates.reflection().onType(bindingType)
+					.withMemberCategories(MemberCategory.INVOKE_DECLARED_CONSTRUCTORS, MemberCategory.DECLARED_FIELDS))
+							.accepts(runtimeHints);
+		}
 	}
 
 }

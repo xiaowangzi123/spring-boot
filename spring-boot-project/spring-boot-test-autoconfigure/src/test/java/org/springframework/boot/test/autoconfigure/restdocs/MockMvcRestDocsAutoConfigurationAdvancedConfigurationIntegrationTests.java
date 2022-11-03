@@ -78,21 +78,21 @@ class MockMvcRestDocsAutoConfigurationAdvancedConfigurationIntegrationTests {
 		assertThat(new File(defaultSnippetsDir, "response-fields.md")).isFile();
 	}
 
-	@TestConfiguration
-	public static class CustomizationConfiguration {
+	@TestConfiguration(proxyBeanMethods = false)
+	static class CustomizationConfiguration {
 
 		@Bean
-		public RestDocumentationResultHandler restDocumentation() {
+		RestDocumentationResultHandler restDocumentation() {
 			return MockMvcRestDocumentation.document("{method-name}");
 		}
 
 		@Bean
-		public RestDocsMockMvcConfigurationCustomizer templateFormatCustomizer() {
+		RestDocsMockMvcConfigurationCustomizer templateFormatCustomizer() {
 			return (configurer) -> configurer.snippets().withTemplateFormat(TemplateFormats.markdown());
 		}
 
 		@Bean
-		public RestDocsMockMvcConfigurationCustomizer defaultSnippetsCustomizer() {
+		RestDocsMockMvcConfigurationCustomizer defaultSnippetsCustomizer() {
 			return (configurer) -> configurer.snippets()
 					.withAdditionalDefaults(responseFields(fieldWithPath("_links.self").description("Main URL")));
 		}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,12 @@
 
 package org.springframework.boot.actuate.context.properties;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.InetAddress;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,12 +31,18 @@ import org.junit.jupiter.api.Test;
 
 import org.springframework.boot.actuate.context.properties.ConfigurationPropertiesReportEndpoint.ApplicationConfigurationProperties;
 import org.springframework.boot.actuate.context.properties.ConfigurationPropertiesReportEndpoint.ConfigurationPropertiesBeanDescriptor;
+import org.springframework.boot.actuate.endpoint.Show;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.ConfigurationPropertiesBinding;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.convert.converter.Converter;
+import org.springframework.core.env.ConfigurableEnvironment;
+import org.springframework.core.env.MapPropertySource;
+import org.springframework.core.io.InputStreamSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
@@ -238,24 +248,61 @@ class ConfigurationPropertiesReportEndpointSerializationTests {
 		});
 	}
 
+	@Test
+	@SuppressWarnings("unchecked")
+	void endpointResponseUsesToStringOfCharSequenceAsPropertyValue() {
+		ApplicationContextRunner contextRunner = new ApplicationContextRunner().withInitializer((context) -> {
+			ConfigurableEnvironment environment = context.getEnvironment();
+			environment.getPropertySources().addFirst(new MapPropertySource("test",
+					Collections.singletonMap("foo.name", new CharSequenceProperty("Spring Boot"))));
+		}).withUserConfiguration(FooConfig.class);
+		contextRunner.run((context) -> {
+			ConfigurationPropertiesReportEndpoint endpoint = context
+					.getBean(ConfigurationPropertiesReportEndpoint.class);
+			ApplicationConfigurationProperties applicationProperties = endpoint.configurationProperties();
+			ConfigurationPropertiesBeanDescriptor descriptor = applicationProperties.getContexts().get(context.getId())
+					.getBeans().get("foo");
+			assertThat((Map<String, Object>) descriptor.getInputs().get("name")).containsEntry("value", "Spring Boot");
+		});
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void endpointResponseUsesPlaceholderForComplexValueAsPropertyValue() {
+		ApplicationContextRunner contextRunner = new ApplicationContextRunner().withInitializer((context) -> {
+			ConfigurableEnvironment environment = context.getEnvironment();
+			environment.getPropertySources().addFirst(new MapPropertySource("test",
+					Collections.singletonMap("foo.name", new ComplexProperty("Spring Boot"))));
+		}).withUserConfiguration(ComplexPropertyToStringConverter.class, FooConfig.class);
+		contextRunner.run((context) -> {
+			ConfigurationPropertiesReportEndpoint endpoint = context
+					.getBean(ConfigurationPropertiesReportEndpoint.class);
+			ApplicationConfigurationProperties applicationProperties = endpoint.configurationProperties();
+			ConfigurationPropertiesBeanDescriptor descriptor = applicationProperties.getContexts().get(context.getId())
+					.getBeans().get("foo");
+			assertThat((Map<String, Object>) descriptor.getInputs().get("name")).containsEntry("value",
+					"Complex property value " + ComplexProperty.class.getName());
+		});
+	}
+
 	@Configuration(proxyBeanMethods = false)
 	@EnableConfigurationProperties
-	public static class Base {
+	static class Base {
 
 		@Bean
-		public ConfigurationPropertiesReportEndpoint endpoint() {
-			return new ConfigurationPropertiesReportEndpoint();
+		ConfigurationPropertiesReportEndpoint endpoint() {
+			return new ConfigurationPropertiesReportEndpoint(Collections.emptyList(), Show.ALWAYS);
 		}
 
 	}
 
 	@Configuration(proxyBeanMethods = false)
 	@Import(Base.class)
-	public static class FooConfig {
+	static class FooConfig {
 
 		@Bean
 		@ConfigurationProperties(prefix = "foo")
-		public Foo foo() {
+		Foo foo() {
 			return new Foo();
 		}
 
@@ -263,11 +310,11 @@ class ConfigurationPropertiesReportEndpointSerializationTests {
 
 	@Configuration(proxyBeanMethods = false)
 	@Import(Base.class)
-	public static class SelfReferentialConfig {
+	static class SelfReferentialConfig {
 
 		@Bean
 		@ConfigurationProperties(prefix = "foo")
-		public SelfReferential foo() {
+		SelfReferential foo() {
 			return new SelfReferential();
 		}
 
@@ -275,11 +322,11 @@ class ConfigurationPropertiesReportEndpointSerializationTests {
 
 	@Configuration(proxyBeanMethods = false)
 	@Import(Base.class)
-	public static class MetadataCycleConfig {
+	static class MetadataCycleConfig {
 
 		@Bean
 		@ConfigurationProperties(prefix = "bar")
-		public SelfReferential foo() {
+		SelfReferential foo() {
 			return new SelfReferential();
 		}
 
@@ -287,11 +334,11 @@ class ConfigurationPropertiesReportEndpointSerializationTests {
 
 	@Configuration(proxyBeanMethods = false)
 	@Import(Base.class)
-	public static class MapConfig {
+	static class MapConfig {
 
 		@Bean
 		@ConfigurationProperties(prefix = "foo")
-		public MapHolder foo() {
+		MapHolder foo() {
 			return new MapHolder();
 		}
 
@@ -299,11 +346,11 @@ class ConfigurationPropertiesReportEndpointSerializationTests {
 
 	@Configuration(proxyBeanMethods = false)
 	@Import(Base.class)
-	public static class ListConfig {
+	static class ListConfig {
 
 		@Bean
 		@ConfigurationProperties(prefix = "foo")
-		public ListHolder foo() {
+		ListHolder foo() {
 			return new ListHolder();
 		}
 
@@ -311,11 +358,11 @@ class ConfigurationPropertiesReportEndpointSerializationTests {
 
 	@Configuration(proxyBeanMethods = false)
 	@Import(Base.class)
-	public static class MetadataMapConfig {
+	static class MetadataMapConfig {
 
 		@Bean
 		@ConfigurationProperties(prefix = "spam")
-		public MapHolder foo() {
+		MapHolder foo() {
 			return new MapHolder();
 		}
 
@@ -323,11 +370,11 @@ class ConfigurationPropertiesReportEndpointSerializationTests {
 
 	@Configuration(proxyBeanMethods = false)
 	@Import(Base.class)
-	public static class AddressedConfig {
+	static class AddressedConfig {
 
 		@Bean
 		@ConfigurationProperties(prefix = "foo")
-		public Addressed foo() {
+		Addressed foo() {
 			return new Addressed();
 		}
 
@@ -335,11 +382,11 @@ class ConfigurationPropertiesReportEndpointSerializationTests {
 
 	@Configuration(proxyBeanMethods = false)
 	@Import(Base.class)
-	public static class InitializedMapAndListPropertiesConfig {
+	static class InitializedMapAndListPropertiesConfig {
 
 		@Bean
 		@ConfigurationProperties(prefix = "foo")
-		public InitializedMapAndListProperties foo() {
+		InitializedMapAndListProperties foo() {
 			return new InitializedMapAndListProperties();
 		}
 
@@ -464,7 +511,7 @@ class ConfigurationPropertiesReportEndpointSerializationTests {
 
 	}
 
-	static class Cycle {
+	public static class Cycle {
 
 		private final Alpha alpha = new Alpha(this);
 
@@ -472,7 +519,7 @@ class ConfigurationPropertiesReportEndpointSerializationTests {
 			return this.alpha;
 		}
 
-		static class Alpha {
+		public static class Alpha {
 
 			private final Cycle cycle;
 
@@ -495,7 +542,7 @@ class ConfigurationPropertiesReportEndpointSerializationTests {
 		@Bean
 		// gh-11037
 		@ConfigurationProperties(prefix = "cycle")
-		public Cycle cycle() {
+		Cycle cycle() {
 			return new Cycle();
 		}
 
@@ -506,14 +553,69 @@ class ConfigurationPropertiesReportEndpointSerializationTests {
 	static class HikariDataSourceConfig {
 
 		@Bean
-		public ConfigurationPropertiesReportEndpoint endpoint() {
-			return new ConfigurationPropertiesReportEndpoint();
+		ConfigurationPropertiesReportEndpoint endpoint() {
+			return new ConfigurationPropertiesReportEndpoint(Collections.emptyList(), Show.ALWAYS);
 		}
 
 		@Bean
 		@ConfigurationProperties(prefix = "test.datasource")
-		public HikariDataSource hikariDataSource() {
+		HikariDataSource hikariDataSource() {
 			return new HikariDataSource();
+		}
+
+	}
+
+	static class CharSequenceProperty implements CharSequence, InputStreamSource {
+
+		private final String value;
+
+		CharSequenceProperty(String value) {
+			this.value = value;
+		}
+
+		@Override
+		public int length() {
+			return this.value.length();
+		}
+
+		@Override
+		public char charAt(int index) {
+			return this.value.charAt(index);
+		}
+
+		@Override
+		public CharSequence subSequence(int start, int end) {
+			return this.value.subSequence(start, end);
+		}
+
+		@Override
+		public String toString() {
+			return this.value;
+		}
+
+		@Override
+		public InputStream getInputStream() throws IOException {
+			return new ByteArrayInputStream(this.value.getBytes());
+		}
+
+	}
+
+	static class ComplexProperty {
+
+		private final String value;
+
+		ComplexProperty(String value) {
+			this.value = value;
+		}
+
+	}
+
+	@ConfigurationPropertiesBinding
+	static class ComplexPropertyToStringConverter implements Converter<ComplexProperty, String> {
+
+		@Override
+		public String convert(ComplexProperty source) {
+			return source.value;
 		}
 
 	}

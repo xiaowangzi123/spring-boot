@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
 
 package org.springframework.boot.autoconfigure.gson;
 
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -26,8 +28,8 @@ import com.google.gson.FieldNamingPolicy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.LongSerializationPolicy;
-import org.joda.time.DateTime;
 import org.junit.jupiter.api.Test;
+import org.skyscreamer.jsonassert.JSONAssert;
 
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -149,7 +151,7 @@ class GsonAutoConfigurationTests {
 	void customGsonBuilder() {
 		this.contextRunner.withUserConfiguration(GsonBuilderConfig.class).run((context) -> {
 			Gson gson = context.getBean(Gson.class);
-			assertThat(gson.toJson(new DataObject())).isEqualTo("{\"data\":1,\"owner\":null}");
+			JSONAssert.assertEquals("{\"data\":1,\"owner\":null}", gson.toJson(new DataObject()), true);
 		});
 	}
 
@@ -198,9 +200,8 @@ class GsonAutoConfigurationTests {
 	void customDateFormat() {
 		this.contextRunner.withPropertyValues("spring.gson.date-format:H").run((context) -> {
 			Gson gson = context.getBean(Gson.class);
-			DateTime dateTime = new DateTime(1988, 6, 25, 20, 30);
-			Date date = dateTime.toDate();
-			assertThat(gson.toJson(date)).isEqualTo("\"20\"");
+			ZonedDateTime dateTime = ZonedDateTime.of(1988, 6, 25, 20, 30, 0, 0, ZoneId.systemDefault());
+			assertThat(gson.toJson(Date.from(dateTime.toInstant()))).isEqualTo("\"20\"");
 		});
 	}
 
@@ -208,7 +209,7 @@ class GsonAutoConfigurationTests {
 	static class GsonBuilderCustomizerConfig {
 
 		@Bean
-		public GsonBuilderCustomizer customSerializationExclusionStrategy() {
+		GsonBuilderCustomizer customSerializationExclusionStrategy() {
 			return (gsonBuilder) -> gsonBuilder.addSerializationExclusionStrategy(new ExclusionStrategy() {
 				@Override
 				public boolean shouldSkipField(FieldAttributes fieldAttributes) {
@@ -228,7 +229,7 @@ class GsonAutoConfigurationTests {
 	static class GsonBuilderConfig {
 
 		@Bean
-		public GsonBuilder customGsonBuilder() {
+		GsonBuilder customGsonBuilder() {
 			return new GsonBuilder().serializeNulls();
 		}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,15 +19,14 @@ package org.springframework.boot.actuate.autoconfigure.endpoint.web;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 
 import org.springframework.boot.actuate.autoconfigure.endpoint.EndpointAutoConfiguration;
-import org.springframework.boot.actuate.autoconfigure.endpoint.ExposeExcludePropertyEndpointFilter;
+import org.springframework.boot.actuate.autoconfigure.endpoint.expose.IncludeExcludeEndpointFilter;
+import org.springframework.boot.actuate.endpoint.ApiVersion;
 import org.springframework.boot.actuate.endpoint.EndpointId;
 import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
-import org.springframework.boot.actuate.endpoint.http.ActuatorMediaType;
 import org.springframework.boot.actuate.endpoint.web.EndpointMediaTypes;
 import org.springframework.boot.actuate.endpoint.web.ExposableWebEndpoint;
 import org.springframework.boot.actuate.endpoint.web.PathMappedEndpoint;
@@ -51,17 +50,21 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class WebEndpointAutoConfigurationTests {
 
+	private static final String V2_JSON = ApiVersion.V2.getProducedMimeType().toString();
+
+	private static final String V3_JSON = ApiVersion.V3.getProducedMimeType().toString();
+
 	private static final AutoConfigurations CONFIGURATIONS = AutoConfigurations.of(EndpointAutoConfiguration.class,
 			WebEndpointAutoConfiguration.class);
 
-	private WebApplicationContextRunner contextRunner = new WebApplicationContextRunner()
+	private final WebApplicationContextRunner contextRunner = new WebApplicationContextRunner()
 			.withConfiguration(CONFIGURATIONS);
 
 	@Test
 	void webApplicationConfiguresEndpointMediaTypes() {
 		this.contextRunner.run((context) -> {
 			EndpointMediaTypes endpointMediaTypes = context.getBean(EndpointMediaTypes.class);
-			assertThat(endpointMediaTypes.getConsumed()).containsExactly(ActuatorMediaType.V2_JSON, "application/json");
+			assertThat(endpointMediaTypes.getConsumed()).containsExactly(V3_JSON, V2_JSON, "application/json");
 		});
 	}
 
@@ -86,8 +89,7 @@ class WebEndpointAutoConfigurationTests {
 					WebEndpointDiscoverer discoverer = context.getBean(WebEndpointDiscoverer.class);
 					Collection<ExposableWebEndpoint> endpoints = discoverer.getEndpoints();
 					ExposableWebEndpoint[] webEndpoints = endpoints.toArray(new ExposableWebEndpoint[0]);
-					List<String> paths = Arrays.stream(webEndpoints).map(PathMappedEndpoint::getRootPath)
-							.collect(Collectors.toList());
+					List<String> paths = Arrays.stream(webEndpoints).map(PathMappedEndpoint::getRootPath).toList();
 					assertThat(paths).containsOnly("1/testone", "foo", "testtwo");
 				});
 	}
@@ -103,7 +105,7 @@ class WebEndpointAutoConfigurationTests {
 	@Test
 	void webApplicationConfiguresExposeExcludePropertyEndpointFilter() {
 		this.contextRunner
-				.run((context) -> assertThat(context).getBeans(ExposeExcludePropertyEndpointFilter.class).containsKeys(
+				.run((context) -> assertThat(context).getBeans(IncludeExcludeEndpointFilter.class).containsKeys(
 						"webExposeExcludePropertyEndpointFilter", "controllerExposeExcludePropertyEndpointFilter"));
 	}
 
@@ -119,7 +121,7 @@ class WebEndpointAutoConfigurationTests {
 	}
 
 	@Component
-	private static class TestPathMatcher implements PathMapper {
+	static class TestPathMatcher implements PathMapper {
 
 		@Override
 		public String getRootPath(EndpointId endpointId) {
@@ -133,19 +135,19 @@ class WebEndpointAutoConfigurationTests {
 
 	@Component
 	@Endpoint(id = "testone")
-	private static class TestOneEndpoint {
+	static class TestOneEndpoint {
 
 	}
 
 	@Component
 	@Endpoint(id = "testanotherone")
-	private static class TestAnotherOneEndpoint {
+	static class TestAnotherOneEndpoint {
 
 	}
 
 	@Component
 	@Endpoint(id = "testtwo")
-	private static class TestTwoEndpoint {
+	static class TestTwoEndpoint {
 
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,9 @@ import java.util.function.Supplier;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -30,7 +31,7 @@ import org.springframework.context.support.StaticApplicationContext;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
-import static org.mockito.Mockito.verify;
+import static org.mockito.BDDMockito.then;
 
 /**
  * Tests for {@link ApplicationContextAssertProvider} and
@@ -38,6 +39,7 @@ import static org.mockito.Mockito.verify;
  *
  * @author Phillip Webb
  */
+@ExtendWith(MockitoExtension.class)
 class ApplicationContextAssertProviderTests {
 
 	@Mock
@@ -51,7 +53,6 @@ class ApplicationContextAssertProviderTests {
 
 	@BeforeEach
 	void setup() {
-		MockitoAnnotations.initMocks(this);
 		this.startupFailure = new RuntimeException();
 		this.mockContextSupplier = () -> this.mockContext;
 		this.startupFailureSupplier = () -> {
@@ -101,7 +102,7 @@ class ApplicationContextAssertProviderTests {
 		ApplicationContextAssertProvider<ApplicationContext> context = get(this.mockContextSupplier);
 		assertThat((Object) context).isNotNull();
 		context.getBean("foo");
-		verify(this.mockContext).getBean("foo");
+		then(this.mockContext).should().getBean("foo");
 	}
 
 	@Test
@@ -178,14 +179,14 @@ class ApplicationContextAssertProviderTests {
 	void toStringWhenContextFailsToStartShouldReturnSimpleString() {
 		ApplicationContextAssertProvider<ApplicationContext> context = get(this.startupFailureSupplier);
 		assertThat(context.toString()).isEqualTo("Unstarted application context "
-				+ "org.springframework.context.ApplicationContext" + "[startupFailure=java.lang.RuntimeException]");
+				+ "org.springframework.context.ApplicationContext[startupFailure=java.lang.RuntimeException]");
 	}
 
 	@Test
 	void closeShouldCloseContext() {
 		ApplicationContextAssertProvider<ApplicationContext> context = get(this.mockContextSupplier);
 		context.close();
-		verify(this.mockContext).close();
+		then(this.mockContext).should().close();
 	}
 
 	private ApplicationContextAssertProvider<ApplicationContext> get(Supplier<ApplicationContext> contextSupplier) {
@@ -193,13 +194,11 @@ class ApplicationContextAssertProviderTests {
 				ApplicationContext.class, contextSupplier);
 	}
 
-	private interface TestAssertProviderApplicationContext
-			extends ApplicationContextAssertProvider<ApplicationContext> {
+	interface TestAssertProviderApplicationContext extends ApplicationContextAssertProvider<ApplicationContext> {
 
 	}
 
-	private abstract static class TestAssertProviderApplicationContextClass
-			implements TestAssertProviderApplicationContext {
+	abstract static class TestAssertProviderApplicationContextClass implements TestAssertProviderApplicationContext {
 
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ package org.springframework.boot.web.embedded.netty;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.BiPredicate;
-import java.util.stream.Collectors;
 
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaders;
@@ -28,6 +27,7 @@ import reactor.netty.http.server.HttpServerRequest;
 import reactor.netty.http.server.HttpServerResponse;
 
 import org.springframework.boot.web.server.Compression;
+import org.springframework.util.InvalidMimeTypeException;
 import org.springframework.util.MimeType;
 import org.springframework.util.MimeTypeUtils;
 import org.springframework.util.ObjectUtils;
@@ -66,15 +66,19 @@ final class CompressionCustomizer implements NettyServerCustomizer {
 		if (ObjectUtils.isEmpty(mimeTypeValues)) {
 			return ALWAYS_COMPRESS;
 		}
-		List<MimeType> mimeTypes = Arrays.stream(mimeTypeValues).map(MimeTypeUtils::parseMimeType)
-				.collect(Collectors.toList());
+		List<MimeType> mimeTypes = Arrays.stream(mimeTypeValues).map(MimeTypeUtils::parseMimeType).toList();
 		return (request, response) -> {
 			String contentType = response.responseHeaders().get(HttpHeaderNames.CONTENT_TYPE);
-			if (StringUtils.isEmpty(contentType)) {
+			if (!StringUtils.hasLength(contentType)) {
 				return false;
 			}
-			MimeType contentMimeType = MimeTypeUtils.parseMimeType(contentType);
-			return mimeTypes.stream().anyMatch((candidate) -> candidate.isCompatibleWith(contentMimeType));
+			try {
+				MimeType contentMimeType = MimeTypeUtils.parseMimeType(contentType);
+				return mimeTypes.stream().anyMatch((candidate) -> candidate.isCompatibleWith(contentMimeType));
+			}
+			catch (InvalidMimeTypeException ex) {
+				return false;
+			}
 		};
 	}
 

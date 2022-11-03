@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,7 @@ package org.springframework.boot.autoconfigure.web.servlet;
 
 import java.net.URI;
 
-import javax.servlet.MultipartConfigElement;
-
+import jakarta.servlet.MultipartConfigElement;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -43,7 +42,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartResolver;
-import org.springframework.web.multipart.commons.CommonsMultipartResolver;
 import org.springframework.web.multipart.support.StandardServletMultipartResolver;
 import org.springframework.web.servlet.DispatcherServlet;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
@@ -149,6 +147,16 @@ class MultipartAutoConfigurationTests {
 	}
 
 	@Test
+	void webServerWithNonAbsoluteMultipartLocationUndertowConfiguration() {
+		this.context = new AnnotationConfigServletWebServerApplicationContext(
+				WebServerWithNonAbsolutePathUndertow.class, BaseConfiguration.class);
+		this.context.getBean(MultipartConfigElement.class);
+		verifyServletWorks();
+		assertThat(this.context.getBean(StandardServletMultipartResolver.class))
+				.isSameAs(this.context.getBean(DispatcherServlet.class).getMultipartResolver());
+	}
+
+	@Test
 	void webServerWithMultipartConfigDisabled() {
 		testWebServerWithCustomMultipartConfigEnabledSetting("false", 0);
 	}
@@ -176,15 +184,6 @@ class MultipartAutoConfigurationTests {
 		MultipartResolver multipartResolver = this.context.getBean(MultipartResolver.class);
 		assertThat(multipartResolver).isNotInstanceOf(StandardServletMultipartResolver.class);
 		assertThat(this.context.getBeansOfType(MultipartConfigElement.class)).hasSize(1);
-	}
-
-	@Test
-	void containerWithCommonsMultipartResolver() {
-		this.context = new AnnotationConfigServletWebServerApplicationContext(
-				ContainerWithCommonsMultipartResolver.class, BaseConfiguration.class);
-		MultipartResolver multipartResolver = this.context.getBean(MultipartResolver.class);
-		assertThat(multipartResolver).isInstanceOf(CommonsMultipartResolver.class);
-		assertThat(this.context.getBeansOfType(MultipartConfigElement.class)).hasSize(0);
 	}
 
 	@Test
@@ -239,12 +238,12 @@ class MultipartAutoConfigurationTests {
 	}
 
 	@Configuration(proxyBeanMethods = false)
-	public static class WebServerWithNothing {
+	static class WebServerWithNothing {
 
 	}
 
 	@Configuration(proxyBeanMethods = false)
-	public static class WebServerWithNoMultipartJetty {
+	static class WebServerWithNoMultipartJetty {
 
 		@Bean
 		JettyServletWebServerFactory webServerFactory() {
@@ -259,7 +258,7 @@ class MultipartAutoConfigurationTests {
 	}
 
 	@Configuration(proxyBeanMethods = false)
-	public static class WebServerWithNoMultipartUndertow {
+	static class WebServerWithNoMultipartUndertow {
 
 		@Bean
 		UndertowServletWebServerFactory webServerFactory() {
@@ -277,10 +276,10 @@ class MultipartAutoConfigurationTests {
 	@Import({ ServletWebServerFactoryAutoConfiguration.class, DispatcherServletAutoConfiguration.class,
 			MultipartAutoConfiguration.class })
 	@EnableConfigurationProperties(MultipartProperties.class)
-	protected static class BaseConfiguration {
+	static class BaseConfiguration {
 
 		@Bean
-		public ServerProperties serverProperties() {
+		ServerProperties serverProperties() {
 			ServerProperties properties = new ServerProperties();
 			properties.setPort(0);
 			return properties;
@@ -289,7 +288,7 @@ class MultipartAutoConfigurationTests {
 	}
 
 	@Configuration(proxyBeanMethods = false)
-	public static class WebServerWithNoMultipartTomcat {
+	static class WebServerWithNoMultipartTomcat {
 
 		@Bean
 		TomcatServletWebServerFactory webServerFactory() {
@@ -304,7 +303,7 @@ class MultipartAutoConfigurationTests {
 	}
 
 	@Configuration(proxyBeanMethods = false)
-	public static class WebServerWithEverythingJetty {
+	static class WebServerWithEverythingJetty {
 
 		@Bean
 		MultipartConfigElement multipartConfigElement() {
@@ -325,7 +324,7 @@ class MultipartAutoConfigurationTests {
 
 	@Configuration(proxyBeanMethods = false)
 	@EnableWebMvc
-	public static class WebServerWithEverythingTomcat {
+	static class WebServerWithEverythingTomcat {
 
 		@Bean
 		MultipartConfigElement multipartConfigElement() {
@@ -346,7 +345,7 @@ class MultipartAutoConfigurationTests {
 
 	@Configuration(proxyBeanMethods = false)
 	@EnableWebMvc
-	public static class WebServerWithEverythingUndertow {
+	static class WebServerWithEverythingUndertow {
 
 		@Bean
 		MultipartConfigElement multipartConfigElement() {
@@ -366,7 +365,28 @@ class MultipartAutoConfigurationTests {
 	}
 
 	@Configuration(proxyBeanMethods = false)
-	public static class WebServerWithCustomMultipartResolver {
+	@EnableWebMvc
+	static class WebServerWithNonAbsolutePathUndertow {
+
+		@Bean
+		MultipartConfigElement multipartConfigElement() {
+			return new MultipartConfigElement("test/not-absolute");
+		}
+
+		@Bean
+		UndertowServletWebServerFactory webServerFactory() {
+			return new UndertowServletWebServerFactory();
+		}
+
+		@Bean
+		WebController webController() {
+			return new WebController();
+		}
+
+	}
+
+	@Configuration(proxyBeanMethods = false)
+	static class WebServerWithCustomMultipartResolver {
 
 		@Bean
 		MultipartResolver multipartResolver() {
@@ -375,22 +395,12 @@ class MultipartAutoConfigurationTests {
 
 	}
 
-	@Configuration(proxyBeanMethods = false)
-	public static class ContainerWithCommonsMultipartResolver {
-
-		@Bean
-		CommonsMultipartResolver multipartResolver() {
-			return mock(CommonsMultipartResolver.class);
-		}
-
-	}
-
 	@Controller
-	public static class WebController {
+	static class WebController {
 
 		@RequestMapping("/")
 		@ResponseBody
-		public String index() {
+		String index() {
 			return "Hello";
 		}
 

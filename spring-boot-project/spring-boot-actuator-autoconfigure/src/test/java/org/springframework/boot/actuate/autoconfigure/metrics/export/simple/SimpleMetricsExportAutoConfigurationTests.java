@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,9 +49,17 @@ class SimpleMetricsExportAutoConfigurationTests {
 	}
 
 	@Test
-	void backsOffWhenSpecificallyDisabled() {
+	void autoConfigurationCanBeDisabledWithDefaultsEnabledProperty() {
 		this.contextRunner.withUserConfiguration(BaseConfiguration.class)
-				.withPropertyValues("management.metrics.export.simple.enabled=false")
+				.withPropertyValues("management.defaults.metrics.export.enabled=false")
+				.run((context) -> assertThat(context).doesNotHaveBean(SimpleMeterRegistry.class)
+						.doesNotHaveBean(SimpleConfig.class));
+	}
+
+	@Test
+	void autoConfigurationCanBeDisabledWithSpecificEnabledProperty() {
+		this.contextRunner.withUserConfiguration(BaseConfiguration.class)
+				.withPropertyValues("management.simple.metrics.export.enabled=false")
 				.run((context) -> assertThat(context).doesNotHaveBean(SimpleMeterRegistry.class)
 						.doesNotHaveBean(SimpleConfig.class));
 	}
@@ -72,7 +80,7 @@ class SimpleMetricsExportAutoConfigurationTests {
 	static class BaseConfiguration {
 
 		@Bean
-		public Clock clock() {
+		Clock clock() {
 			return Clock.SYSTEM;
 		}
 
@@ -83,7 +91,7 @@ class SimpleMetricsExportAutoConfigurationTests {
 	static class CustomConfigConfiguration {
 
 		@Bean
-		public SimpleConfig customConfig() {
+		SimpleConfig customConfig() {
 			return (key) -> null;
 		}
 
@@ -94,7 +102,7 @@ class SimpleMetricsExportAutoConfigurationTests {
 	static class CustomRegistryConfiguration {
 
 		@Bean
-		public MeterRegistry customRegistry() {
+		MeterRegistry customRegistry() {
 			return mock(MeterRegistry.class);
 		}
 

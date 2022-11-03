@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,8 +50,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Integration tests for the default error view.
  *
  * @author Dave Syer
+ * @author Scott Frederick
  */
-@SpringBootTest
+@SpringBootTest(properties = { "server.error.include-message=always" })
 @DirtiesContext
 class DefaultErrorViewIntegrationTests {
 
@@ -78,7 +79,7 @@ class DefaultErrorViewIntegrationTests {
 	void testErrorWithHtmlEscape() throws Exception {
 		MvcResult response = this.mockMvc
 				.perform(get("/error")
-						.requestAttr("javax.servlet.error.exception",
+						.requestAttr("jakarta.servlet.error.exception",
 								new RuntimeException("<script>alert('Hello World')</script>"))
 						.accept(MediaType.TEXT_HTML))
 				.andExpect(status().is5xxServerError()).andReturn();
@@ -92,13 +93,13 @@ class DefaultErrorViewIntegrationTests {
 	void testErrorWithSpelEscape() throws Exception {
 		String spel = "${T(" + getClass().getName() + ").injectCall()}";
 		MvcResult response = this.mockMvc.perform(get("/error")
-				.requestAttr("javax.servlet.error.exception", new RuntimeException(spel)).accept(MediaType.TEXT_HTML))
+				.requestAttr("jakarta.servlet.error.exception", new RuntimeException(spel)).accept(MediaType.TEXT_HTML))
 				.andExpect(status().is5xxServerError()).andReturn();
 		String content = response.getResponse().getContentAsString();
 		assertThat(content).doesNotContain("injection");
 	}
 
-	public static String injectCall() {
+	static String injectCall() {
 		return "injection";
 	}
 
@@ -114,10 +115,10 @@ class DefaultErrorViewIntegrationTests {
 
 	@Configuration(proxyBeanMethods = false)
 	@MinimalWebConfiguration
-	public static class TestConfiguration {
+	static class TestConfiguration {
 
 		// For manual testing
-		public static void main(String[] args) {
+		static void main(String[] args) {
 			SpringApplication.run(TestConfiguration.class, args);
 		}
 

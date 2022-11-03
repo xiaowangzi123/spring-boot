@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 package org.springframework.boot.test.autoconfigure.web.reactive;
 
 import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -39,8 +38,8 @@ import org.springframework.web.server.adapter.WebHttpHandlerBuilder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 
 /**
  * Tests for {@link WebTestClientAutoConfiguration}
@@ -50,7 +49,7 @@ import static org.mockito.Mockito.verify;
  */
 class WebTestClientAutoConfigurationTests {
 
-	private ApplicationContextRunner contextRunner = new ApplicationContextRunner()
+	private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
 			.withConfiguration(AutoConfigurations.of(WebTestClientAutoConfiguration.class));
 
 	@Test
@@ -66,7 +65,7 @@ class WebTestClientAutoConfigurationTests {
 		this.contextRunner.withUserConfiguration(CodecConfiguration.class).run((context) -> {
 			assertThat(context).hasSingleBean(WebTestClient.class);
 			assertThat(context).hasSingleBean(CodecCustomizer.class);
-			verify(context.getBean(CodecCustomizer.class)).customize(any(CodecConfigurer.class));
+			then(context.getBean(CodecCustomizer.class)).should().customize(any(CodecConfigurer.class));
 		});
 	}
 
@@ -75,8 +74,7 @@ class WebTestClientAutoConfigurationTests {
 		this.contextRunner.withUserConfiguration(BaseConfiguration.class)
 				.withPropertyValues("spring.test.webtestclient.timeout=15m").run((context) -> {
 					WebTestClient webTestClient = context.getBean(WebTestClient.class);
-					Object duration = ReflectionTestUtils.getField(webTestClient, "timeout");
-					assertThat(duration).isEqualTo(Duration.of(15, ChronoUnit.MINUTES));
+					assertThat(webTestClient).hasFieldOrPropertyWithValue("responseTimeout", Duration.ofMinutes(15));
 				});
 	}
 
@@ -116,7 +114,7 @@ class WebTestClientAutoConfigurationTests {
 	static class BaseConfiguration {
 
 		@Bean
-		public WebHandler webHandler() {
+		WebHandler webHandler() {
 			return mock(WebHandler.class);
 		}
 
@@ -127,7 +125,7 @@ class WebTestClientAutoConfigurationTests {
 	static class CodecConfiguration {
 
 		@Bean
-		public CodecCustomizer myCodecCustomizer() {
+		CodecCustomizer myCodecCustomizer() {
 			return mock(CodecCustomizer.class);
 		}
 

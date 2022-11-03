@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ class CompositeMeterRegistryAutoConfigurationTests {
 
 	private static final String COMPOSITE_NAME = "compositeMeterRegistry";
 
-	private ApplicationContextRunner contextRunner = new ApplicationContextRunner()
+	private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
 			.withUserConfiguration(BaseConfig.class)
 			.withConfiguration(AutoConfigurations.of(CompositeMeterRegistryAutoConfiguration.class));
 
@@ -90,7 +90,7 @@ class CompositeMeterRegistryAutoConfigurationTests {
 
 		@Bean
 		@ConditionalOnMissingBean
-		public Clock micrometerClock() {
+		Clock micrometerClock() {
 			return Clock.SYSTEM;
 		}
 
@@ -105,7 +105,7 @@ class CompositeMeterRegistryAutoConfigurationTests {
 	static class SingleMeterRegistryConfig {
 
 		@Bean
-		public MeterRegistry meterRegistry() {
+		MeterRegistry meterRegistry() {
 			return new TestMeterRegistry();
 		}
 
@@ -115,12 +115,12 @@ class CompositeMeterRegistryAutoConfigurationTests {
 	static class MultipleMeterRegistriesConfig {
 
 		@Bean
-		public MeterRegistry meterRegistryOne() {
+		MeterRegistry meterRegistryOne() {
 			return new TestMeterRegistry();
 		}
 
 		@Bean
-		public MeterRegistry meterRegistryTwo() {
+		MeterRegistry meterRegistryTwo() {
 			return new SimpleMeterRegistry();
 		}
 
@@ -131,12 +131,12 @@ class CompositeMeterRegistryAutoConfigurationTests {
 
 		@Bean
 		@Primary
-		public MeterRegistry meterRegistryOne() {
+		MeterRegistry meterRegistryOne() {
 			return new TestMeterRegistry();
 		}
 
 		@Bean
-		public MeterRegistry meterRegistryTwo() {
+		MeterRegistry meterRegistryTwo() {
 			return new SimpleMeterRegistry();
 		}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,6 @@ import java.lang.reflect.Modifier;
 import java.util.Map;
 import java.util.function.BiConsumer;
 
-import javax.annotation.PostConstruct;
-
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.KeyDeserializer;
@@ -33,6 +31,7 @@ import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.BeanFactoryAware;
 import org.springframework.beans.factory.HierarchicalBeanFactory;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.boot.jackson.JsonComponent.Scope;
 import org.springframework.core.ResolvableType;
@@ -43,15 +42,15 @@ import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
 
 /**
- * Spring Bean and Jackson {@link Module} to register {@link JsonComponent} annotated
- * beans.
+ * Spring Bean and Jackson {@link Module} to register {@link JsonComponent @JsonComponent}
+ * annotated beans.
  *
  * @author Phillip Webb
  * @author Paul Aly
  * @since 1.4.0
  * @see JsonComponent
  */
-public class JsonComponentModule extends SimpleModule implements BeanFactoryAware {
+public class JsonComponentModule extends SimpleModule implements BeanFactoryAware, InitializingBean {
 
 	private BeanFactory beanFactory;
 
@@ -60,15 +59,19 @@ public class JsonComponentModule extends SimpleModule implements BeanFactoryAwar
 		this.beanFactory = beanFactory;
 	}
 
-	@PostConstruct
+	@Override
+	public void afterPropertiesSet() {
+		registerJsonComponents();
+	}
+
 	public void registerJsonComponents() {
 		BeanFactory beanFactory = this.beanFactory;
 		while (beanFactory != null) {
-			if (beanFactory instanceof ListableBeanFactory) {
-				addJsonBeans((ListableBeanFactory) beanFactory);
+			if (beanFactory instanceof ListableBeanFactory listableBeanFactory) {
+				addJsonBeans(listableBeanFactory);
 			}
-			beanFactory = (beanFactory instanceof HierarchicalBeanFactory)
-					? ((HierarchicalBeanFactory) beanFactory).getParentBeanFactory() : null;
+			beanFactory = (beanFactory instanceof HierarchicalBeanFactory hierarchicalBeanFactory)
+					? hierarchicalBeanFactory.getParentBeanFactory() : null;
 		}
 	}
 
@@ -80,8 +83,8 @@ public class JsonComponentModule extends SimpleModule implements BeanFactoryAwar
 	}
 
 	private void addJsonBean(Object bean) {
-		MergedAnnotation<JsonComponent> annotation = MergedAnnotations.from(bean.getClass(), SearchStrategy.EXHAUSTIVE)
-				.get(JsonComponent.class);
+		MergedAnnotation<JsonComponent> annotation = MergedAnnotations
+				.from(bean.getClass(), SearchStrategy.TYPE_HIERARCHY).get(JsonComponent.class);
 		Class<?>[] types = annotation.getClassArray("type");
 		Scope scope = annotation.getEnum("scope", JsonComponent.Scope.class);
 		addJsonBean(bean, types, scope);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,12 +20,12 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Field;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
@@ -36,13 +36,14 @@ import org.springframework.util.ReflectionUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
+import static org.mockito.BDDMockito.then;
 
 /**
  * Tests for {@link QualifierDefinition}.
  *
  * @author Phillip Webb
  */
+@ExtendWith(MockitoExtension.class)
 class QualifierDefinitionTests {
 
 	@Mock
@@ -50,11 +51,6 @@ class QualifierDefinitionTests {
 
 	@Captor
 	private ArgumentCaptor<DependencyDescriptor> descriptorCaptor;
-
-	@BeforeEach
-	void setup() {
-		MockitoAnnotations.initMocks(this);
-	}
 
 	@Test
 	void forElementFieldIsNullShouldReturnNull() {
@@ -85,7 +81,7 @@ class QualifierDefinitionTests {
 		Field field = ReflectionUtils.findField(ConfigA.class, "directQualifier");
 		QualifierDefinition qualifierDefinition = QualifierDefinition.forElement(field);
 		qualifierDefinition.matches(this.beanFactory, "bean");
-		verify(this.beanFactory).isAutowireCandidate(eq("bean"), this.descriptorCaptor.capture());
+		then(this.beanFactory).should().isAutowireCandidate(eq("bean"), this.descriptorCaptor.capture());
 		assertThat(this.descriptorCaptor.getValue().getAnnotatedElement()).isEqualTo(field);
 	}
 

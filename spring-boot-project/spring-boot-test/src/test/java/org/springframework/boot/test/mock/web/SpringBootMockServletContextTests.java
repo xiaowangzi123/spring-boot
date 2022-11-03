@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLDecoder;
 
-import javax.servlet.ServletContext;
-
+import jakarta.servlet.ServletContext;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -35,7 +34,6 @@ import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.web.context.ServletContextAware;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.nullValue;
 
 /**
  * Tests for {@link SpringBootMockServletContext}.
@@ -81,12 +79,12 @@ class SpringBootMockServletContextTests implements ServletContextAware {
 			}
 		};
 		URL resource = context.getResource("/");
-		assertThat(resource).isNotEqualTo(nullValue());
+		assertThat(resource).isNotNull();
 		File file = new File(URLDecoder.decode(resource.getPath(), "UTF-8"));
 		assertThat(file).exists().isDirectory();
 		String[] contents = file.list((dir, name) -> !(".".equals(name) || "..".equals(name)));
-		assertThat(contents).isNotEqualTo(nullValue());
-		assertThat(contents.length).isEqualTo(0);
+		assertThat(contents).isNotNull();
+		assertThat(contents).isEmpty();
 	}
 
 	@Configuration(proxyBeanMethods = false)

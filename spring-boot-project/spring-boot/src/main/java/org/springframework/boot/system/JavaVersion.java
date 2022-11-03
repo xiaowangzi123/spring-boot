@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,17 @@
 
 package org.springframework.boot.system;
 
+import java.io.Console;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.Future;
 
 import org.springframework.util.ClassUtils;
 
 /**
- * Supported Java versions.
+ * Known Java versions.
  *
  * @author Oliver Gierke
  * @author Phillip Webb
@@ -32,22 +35,27 @@ import org.springframework.util.ClassUtils;
 public enum JavaVersion {
 
 	/**
-	 * Java 1.8.
+	 * Java 17.
 	 */
-	EIGHT("1.8", "java.util.function.Function"),
+	SEVENTEEN("17", Console.class, "charset"),
 
 	/**
-	 * Java 1.9.
+	 * Java 18.
 	 */
-	NINE("1.9", "java.security.cert.URICertStoreParameters");
+	EIGHTEEN("18", Duration.class, "isPositive"),
+
+	/**
+	 * Java 19.
+	 */
+	NINETEEN("19", Future.class, "state");
 
 	private final String name;
 
 	private final boolean available;
 
-	JavaVersion(String name, String className) {
+	JavaVersion(String name, Class<?> clazz, String methodName) {
 		this.name = name;
-		this.available = ClassUtils.isPresent(className, getClass().getClassLoader());
+		this.available = ClassUtils.hasMethod(clazz, methodName);
 	}
 
 	@Override
@@ -67,7 +75,7 @@ public enum JavaVersion {
 				return candidate;
 			}
 		}
-		return EIGHT;
+		return SEVENTEEN;
 	}
 
 	/**

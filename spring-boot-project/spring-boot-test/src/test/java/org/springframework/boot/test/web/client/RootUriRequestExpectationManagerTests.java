@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,10 +20,11 @@ import java.net.URI;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.client.ClientHttpRequest;
@@ -39,8 +40,8 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
@@ -49,6 +50,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
  *
  * @author Phillip Webb
  */
+@ExtendWith(MockitoExtension.class)
 class RootUriRequestExpectationManagerTests {
 
 	private String uri = "https://example.com";
@@ -63,7 +65,6 @@ class RootUriRequestExpectationManagerTests {
 
 	@BeforeEach
 	void setup() {
-		MockitoAnnotations.initMocks(this);
 		this.manager = new RootUriRequestExpectationManager(this.uri, this.delegate);
 	}
 
@@ -84,7 +85,7 @@ class RootUriRequestExpectationManagerTests {
 		ExpectedCount count = ExpectedCount.once();
 		RequestMatcher requestMatcher = mock(RequestMatcher.class);
 		this.manager.expectRequest(count, requestMatcher);
-		verify(this.delegate).expectRequest(count, requestMatcher);
+		then(this.delegate).should().expectRequest(count, requestMatcher);
 	}
 
 	@Test
@@ -92,7 +93,7 @@ class RootUriRequestExpectationManagerTests {
 		ClientHttpRequest request = mock(ClientHttpRequest.class);
 		given(request.getURI()).willReturn(new URI("https://spring.io/test"));
 		this.manager.validateRequest(request);
-		verify(this.delegate).validateRequest(request);
+		then(this.delegate).should().validateRequest(request);
 	}
 
 	@Test
@@ -100,7 +101,7 @@ class RootUriRequestExpectationManagerTests {
 		ClientHttpRequest request = mock(ClientHttpRequest.class);
 		given(request.getURI()).willReturn(new URI(this.uri + "/hello"));
 		this.manager.validateRequest(request);
-		verify(this.delegate).validateRequest(this.requestCaptor.capture());
+		then(this.delegate).should().validateRequest(this.requestCaptor.capture());
 		HttpRequestWrapper actual = (HttpRequestWrapper) this.requestCaptor.getValue();
 		assertThat(actual.getRequest()).isSameAs(request);
 		assertThat(actual.getURI()).isEqualTo(new URI("/hello"));
@@ -119,7 +120,7 @@ class RootUriRequestExpectationManagerTests {
 	@Test
 	void resetRequestShouldDelegateToExpectationManager() {
 		this.manager.reset();
-		verify(this.delegate).reset();
+		then(this.delegate).should().reset();
 	}
 
 	@Test
@@ -142,7 +143,7 @@ class RootUriRequestExpectationManagerTests {
 		RequestExpectationManager actual = RootUriRequestExpectationManager.forRestTemplate(restTemplate,
 				this.delegate);
 		assertThat(actual).isInstanceOf(RootUriRequestExpectationManager.class);
-		assertThat(actual).extracting("rootUri").containsExactly(this.uri);
+		assertThat(actual).extracting("rootUri").isEqualTo(this.uri);
 	}
 
 	@Test

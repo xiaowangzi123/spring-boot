@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@ import org.junit.platform.launcher.Launcher;
 import org.junit.platform.launcher.LauncherDiscoveryRequest;
 import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
 import org.junit.platform.launcher.core.LauncherFactory;
-import org.junit.runners.model.InitializationError;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfigurationPackage;
@@ -51,7 +50,7 @@ class ImportsContextCustomizerFactoryWithAutoConfigurationTests {
 	static ApplicationContext contextFromTest;
 
 	@Test
-	void testClassesThatHaveSameAnnotationsShareAContext() throws InitializationError {
+	void testClassesThatHaveSameAnnotationsShareAContext() {
 		executeTests(DataJpaTest1.class);
 		ApplicationContext test1Context = contextFromTest;
 		executeTests(DataJpaTest3.class);
@@ -60,7 +59,7 @@ class ImportsContextCustomizerFactoryWithAutoConfigurationTests {
 	}
 
 	@Test
-	void testClassesThatOnlyHaveDifferingUnrelatedAnnotationsShareAContext() throws InitializationError {
+	void testClassesThatOnlyHaveDifferingUnrelatedAnnotationsShareAContext() {
 		executeTests(DataJpaTest1.class);
 		ApplicationContext test1Context = contextFromTest;
 		executeTests(DataJpaTest2.class);
@@ -69,8 +68,7 @@ class ImportsContextCustomizerFactoryWithAutoConfigurationTests {
 	}
 
 	@Test
-	void testClassesThatOnlyHaveDifferingPropertyMappedAnnotationAttributesDoNotShareAContext()
-			throws InitializationError {
+	void testClassesThatOnlyHaveDifferingPropertyMappedAnnotationAttributesDoNotShareAContext() {
 		executeTests(DataJpaTest1.class);
 		ApplicationContext test1Context = contextFromTest;
 		executeTests(DataJpaTest4.class);

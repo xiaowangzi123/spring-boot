@@ -64,7 +64,7 @@ public class JSONStringer {
 
 	/**
 	 * Lexical scoping elements within this stringer, necessary to insert the appropriate
-	 * separator characters (ie. commas and colons) and to detect nesting errors.
+	 * separator characters (i.e. commas and colons) and to detect nesting errors.
 	 */
 	enum Scope {
 
@@ -191,8 +191,7 @@ public class JSONStringer {
 	 * @return the JSON stringer
 	 * @throws JSONException if processing of json failed
 	 */
-	JSONStringer close(Scope empty, Scope nonempty, String closeBracket)
-			throws JSONException {
+	JSONStringer close(Scope empty, Scope nonempty, String closeBracket) throws JSONException {
 		Scope context = peek();
 		if (context != nonempty && context != empty) {
 			throw new JSONException("Nesting problem");
@@ -242,7 +241,6 @@ public class JSONStringer {
 		if (value instanceof JSONArray) {
 			((JSONArray) value).writeTo(this);
 			return this;
-
 		}
 		else if (value instanceof JSONObject) {
 			((JSONObject) value).writeTo(this);
@@ -323,40 +321,40 @@ public class JSONStringer {
 			 * reverse solidus, and the control characters (U+0000 through U+001F)."
 			 */
 			switch (c) {
-			case '"':
-			case '\\':
-			case '/':
-				this.out.append('\\').append(c);
-				break;
+				case '"':
+				case '\\':
+				case '/':
+					this.out.append('\\').append(c);
+					break;
 
-			case '\t':
-				this.out.append("\\t");
-				break;
+				case '\t':
+					this.out.append("\\t");
+					break;
 
-			case '\b':
-				this.out.append("\\b");
-				break;
+				case '\b':
+					this.out.append("\\b");
+					break;
 
-			case '\n':
-				this.out.append("\\n");
-				break;
+				case '\n':
+					this.out.append("\\n");
+					break;
 
-			case '\r':
-				this.out.append("\\r");
-				break;
+				case '\r':
+					this.out.append("\\r");
+					break;
 
-			case '\f':
-				this.out.append("\\f");
-				break;
+				case '\f':
+					this.out.append("\\f");
+					break;
 
-			default:
-				if (c <= 0x1F) {
-					this.out.append(String.format("\\u%04x", (int) c));
-				}
-				else {
-					this.out.append(c);
-				}
-				break;
+				default:
+					if (c <= 0x1F) {
+						this.out.append(String.format("\\u%04x", (int) c));
+					}
+					else {
+						this.out.append(c);
+					}
+					break;
 			}
 
 		}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,6 +58,8 @@ class JsonContentAssertTests {
 
 	private static final String SIMPSONS = loadJson("simpsons.json");
 
+	private static final String NULLS = loadJson("nulls.json");
+
 	private static JSONComparator COMPARATOR = new DefaultComparator(JSONCompareMode.LENIENT);
 
 	@TempDir
@@ -114,7 +116,7 @@ class JsonContentAssertTests {
 	}
 
 	@Test
-	void isEqualToWhenFileIsNotMatchingShouldFail() throws Exception {
+	void isEqualToWhenFileIsNotMatchingShouldFail() {
 		assertThatExceptionOfType(AssertionError.class)
 				.isThrownBy(() -> assertThat(forJson(SOURCE)).isEqualTo(createFile(DIFFERENT)));
 	}
@@ -197,7 +199,7 @@ class JsonContentAssertTests {
 	}
 
 	@Test
-	void isEqualToJsonWhenFileIsNotMatchingShouldFail() throws Exception {
+	void isEqualToJsonWhenFileIsNotMatchingShouldFail() {
 		assertThatExceptionOfType(AssertionError.class)
 				.isThrownBy(() -> assertThat(forJson(SOURCE)).isEqualToJson(createFile(DIFFERENT)));
 	}
@@ -274,7 +276,7 @@ class JsonContentAssertTests {
 	}
 
 	@Test
-	void isStrictlyEqualToJsonWhenFileIsNotMatchingShouldFail() throws Exception {
+	void isStrictlyEqualToJsonWhenFileIsNotMatchingShouldFail() {
 		assertThatExceptionOfType(AssertionError.class)
 				.isThrownBy(() -> assertThat(forJson(SOURCE)).isStrictlyEqualToJson(createFile(LENIENT_SAME)));
 	}
@@ -428,7 +430,7 @@ class JsonContentAssertTests {
 	}
 
 	@Test
-	void isEqualToJsonWhenFileIsNotMatchingAndComparatorShouldFail() throws Exception {
+	void isEqualToJsonWhenFileIsNotMatchingAndComparatorShouldFail() {
 		assertThatExceptionOfType(AssertionError.class)
 				.isThrownBy(() -> assertThat(forJson(SOURCE)).isEqualToJson(createFile(DIFFERENT), COMPARATOR));
 	}
@@ -494,7 +496,7 @@ class JsonContentAssertTests {
 	}
 
 	@Test
-	void isNotEqualToWhenFileIsMatchingShouldFail() throws Exception {
+	void isNotEqualToWhenFileIsMatchingShouldFail() {
 		assertThatExceptionOfType(AssertionError.class)
 				.isThrownBy(() -> assertThat(forJson(SOURCE)).isNotEqualTo(createFile(LENIENT_SAME)));
 	}
@@ -576,7 +578,7 @@ class JsonContentAssertTests {
 	}
 
 	@Test
-	void isNotEqualToJsonWhenFileIsMatchingShouldFail() throws Exception {
+	void isNotEqualToJsonWhenFileIsMatchingShouldFail() {
 		assertThatExceptionOfType(AssertionError.class)
 				.isThrownBy(() -> assertThat(forJson(SOURCE)).isNotEqualToJson(createFile(LENIENT_SAME)));
 	}
@@ -653,7 +655,7 @@ class JsonContentAssertTests {
 	}
 
 	@Test
-	void isNotStrictlyEqualToJsonWhenFileIsMatchingShouldFail() throws Exception {
+	void isNotStrictlyEqualToJsonWhenFileIsMatchingShouldFail() {
 		assertThatExceptionOfType(AssertionError.class)
 				.isThrownBy(() -> assertThat(forJson(SOURCE)).isNotStrictlyEqualToJson(createFile(SOURCE)));
 	}
@@ -730,7 +732,7 @@ class JsonContentAssertTests {
 	}
 
 	@Test
-	void isNotEqualToJsonWhenFileIsMatchingAndLenientShouldFail() throws Exception {
+	void isNotEqualToJsonWhenFileIsMatchingAndLenientShouldFail() {
 		assertThatExceptionOfType(AssertionError.class).isThrownBy(
 				() -> assertThat(forJson(SOURCE)).isNotEqualToJson(createFile(LENIENT_SAME), JSONCompareMode.LENIENT));
 	}
@@ -807,7 +809,7 @@ class JsonContentAssertTests {
 	}
 
 	@Test
-	void isNotEqualToJsonWhenFileIsMatchingAndComparatorShouldFail() throws Exception {
+	void isNotEqualToJsonWhenFileIsMatchingAndComparatorShouldFail() {
 		assertThatExceptionOfType(AssertionError.class)
 				.isThrownBy(() -> assertThat(forJson(SOURCE)).isNotEqualToJson(createFile(LENIENT_SAME), COMPARATOR));
 	}
@@ -840,6 +842,24 @@ class JsonContentAssertTests {
 	}
 
 	@Test
+	void hasJsonPathForPresentAndNotNull() {
+		assertThat(forJson(NULLS)).hasJsonPath("valuename");
+	}
+
+	@Test
+	void hasJsonPathForPresentAndNull() {
+		assertThat(forJson(NULLS)).hasJsonPath("nullname");
+	}
+
+	@Test
+	void hasJsonPathForNotPresent() {
+		String expression = "missing";
+		assertThatExceptionOfType(AssertionError.class)
+				.isThrownBy(() -> assertThat(forJson(NULLS)).hasJsonPath(expression))
+				.withMessageContaining("No JSON path \"" + expression + "\" found");
+	}
+
+	@Test
 	void hasJsonPathValue() {
 		assertThat(forJson(TYPES)).hasJsonPathValue("$.str");
 	}
@@ -855,6 +875,22 @@ class JsonContentAssertTests {
 	}
 
 	@Test
+	void hasJsonPathValueForANullValue() {
+		String expression = "nullname";
+		assertThatExceptionOfType(AssertionError.class)
+				.isThrownBy(() -> assertThat(forJson(NULLS)).hasJsonPathValue(expression))
+				.withMessageContaining("No value at JSON path \"" + expression + "\"");
+	}
+
+	@Test
+	void hasJsonPathValueForMissingValue() {
+		String expression = "missing";
+		assertThatExceptionOfType(AssertionError.class)
+				.isThrownBy(() -> assertThat(forJson(NULLS)).hasJsonPathValue(expression))
+				.withMessageContaining("No value at JSON path \"" + expression + "\"");
+	}
+
+	@Test
 	void hasJsonPathValueForIndefinitePathWithResults() {
 		assertThat(forJson(SIMPSONS)).hasJsonPathValue("$.familyMembers[?(@.name == 'Bart')]");
 	}
@@ -865,6 +901,27 @@ class JsonContentAssertTests {
 		assertThatExceptionOfType(AssertionError.class)
 				.isThrownBy(() -> assertThat(forJson(SIMPSONS)).hasJsonPathValue(expression))
 				.withMessageContaining("No value at JSON path \"" + expression + "\"");
+	}
+
+	@Test
+	void doesNotHaveJsonPathForMissing() {
+		assertThat(forJson(NULLS)).doesNotHaveJsonPath("missing");
+	}
+
+	@Test
+	void doesNotHaveJsonPathForNull() {
+		String expression = "nullname";
+		assertThatExceptionOfType(AssertionError.class)
+				.isThrownBy(() -> assertThat(forJson(NULLS)).doesNotHaveJsonPath(expression))
+				.withMessageContaining("Expecting no JSON path \"" + expression + "\"");
+	}
+
+	@Test
+	void doesNotHaveJsonPathForPresent() {
+		String expression = "valuename";
+		assertThatExceptionOfType(AssertionError.class)
+				.isThrownBy(() -> assertThat(forJson(NULLS)).doesNotHaveJsonPath(expression))
+				.withMessageContaining("Expecting no JSON path \"" + expression + "\"");
 	}
 
 	@Test
@@ -900,6 +957,11 @@ class JsonContentAssertTests {
 	@Test
 	void doesNotHaveJsonPathValueForIndefinitePathWithEmptyResults() {
 		assertThat(forJson(SIMPSONS)).doesNotHaveJsonPathValue("$.familyMembers[?(@.name == 'Dilbert')]");
+	}
+
+	@Test
+	void doesNotHaveJsonPathValueForNull() {
+		assertThat(forJson(NULLS)).doesNotHaveJsonPathValue("nullname");
 	}
 
 	@Test

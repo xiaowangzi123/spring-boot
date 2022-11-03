@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@ import org.springframework.data.rest.webmvc.config.RepositoryRestMvcConfiguratio
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.mock.web.MockServletContext;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -76,7 +77,7 @@ class RepositoryRestMvcAutoConfigurationTests {
 		assertThat(this.context.getBean(RepositoryRestMvcConfiguration.class)).isNotNull();
 		RepositoryRestConfiguration bean = this.context.getBean(RepositoryRestConfiguration.class);
 		URI expectedUri = URI.create("/foo");
-		assertThat(bean.getBaseUri()).as("Custom basePath not set").isEqualTo(expectedUri);
+		assertThat(bean.getBasePath()).as("Custom basePath not set").isEqualTo(expectedUri);
 		BaseUri baseUri = this.context.getBean(BaseUri.class);
 		assertThat(expectedUri).as("Custom basePath has not been applied to BaseUri bean").isEqualTo(baseUri.getUri());
 	}
@@ -119,7 +120,7 @@ class RepositoryRestMvcAutoConfigurationTests {
 		load(TestConfigurationWithRestMvcConfig.class, "spring.data.rest.base-path:foo");
 		assertThat(this.context.getBean(RepositoryRestMvcConfiguration.class)).isNotNull();
 		RepositoryRestConfiguration bean = this.context.getBean(RepositoryRestConfiguration.class);
-		assertThat(bean.getBaseUri()).isEqualTo(URI.create(""));
+		assertThat(bean.getBasePath()).isEqualTo(URI.create(""));
 	}
 
 	private void load(Class<?> config, String... environment) {
@@ -136,24 +137,24 @@ class RepositoryRestMvcAutoConfigurationTests {
 	@ImportAutoConfiguration({ HibernateJpaAutoConfiguration.class, JpaRepositoriesAutoConfiguration.class,
 			PropertyPlaceholderAutoConfiguration.class, RepositoryRestMvcAutoConfiguration.class,
 			JacksonAutoConfiguration.class })
-	protected static class BaseConfiguration {
+	static class BaseConfiguration {
 
 	}
 
 	@Configuration(proxyBeanMethods = false)
 	@TestAutoConfigurationPackage(City.class)
 	@EnableWebMvc
-	protected static class TestConfiguration {
+	static class TestConfiguration {
 
 	}
 
 	@Import({ TestConfiguration.class, TestRepositoryRestConfigurer.class })
-	protected static class TestConfigurationWithConfigurer {
+	static class TestConfigurationWithConfigurer {
 
 	}
 
 	@Import({ TestConfiguration.class, RepositoryRestMvcConfiguration.class })
-	protected static class TestConfigurationWithRestMvcConfig {
+	static class TestConfigurationWithRestMvcConfig {
 
 	}
 
@@ -163,7 +164,7 @@ class RepositoryRestMvcAutoConfigurationTests {
 	static class TestConfigurationWithObjectMapperBuilder {
 
 		@Bean
-		public Jackson2ObjectMapperBuilder objectMapperBuilder() {
+		Jackson2ObjectMapperBuilder objectMapperBuilder() {
 			Jackson2ObjectMapperBuilder objectMapperBuilder = new Jackson2ObjectMapperBuilder();
 			objectMapperBuilder.simpleDateFormat("yyyy-MM");
 			return objectMapperBuilder;
@@ -174,7 +175,7 @@ class RepositoryRestMvcAutoConfigurationTests {
 	static class TestRepositoryRestConfigurer implements RepositoryRestConfigurer {
 
 		@Override
-		public void configureRepositoryRestConfiguration(RepositoryRestConfiguration config) {
+		public void configureRepositoryRestConfiguration(RepositoryRestConfiguration config, CorsRegistry cors) {
 			config.setRepositoryDetectionStrategy(RepositoryDetectionStrategies.ALL);
 			config.setDefaultMediaType(MediaType.parseMediaType("application/my-custom-json"));
 			config.setMaxPageSize(78);

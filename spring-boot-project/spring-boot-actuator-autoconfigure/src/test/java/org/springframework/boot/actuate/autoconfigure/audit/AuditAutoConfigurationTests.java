@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,8 +32,8 @@ import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.access.event.AbstractAuthorizationEvent;
 import org.springframework.security.authentication.event.AbstractAuthenticationEvent;
+import org.springframework.security.authorization.event.AuthorizationEvent;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -46,7 +46,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class AuditAutoConfigurationTests {
 
-	private WebApplicationContextRunner contextRunner = new WebApplicationContextRunner()
+	private final WebApplicationContextRunner contextRunner = new WebApplicationContextRunner()
 			.withConfiguration(AutoConfigurations.of(AuditAutoConfiguration.class));
 
 	@Test
@@ -97,30 +97,30 @@ class AuditAutoConfigurationTests {
 	}
 
 	@Configuration(proxyBeanMethods = false)
-	public static class CustomAuditEventRepositoryConfiguration {
+	static class CustomAuditEventRepositoryConfiguration {
 
 		@Bean
-		public TestAuditEventRepository testAuditEventRepository() {
+		TestAuditEventRepository testAuditEventRepository() {
 			return new TestAuditEventRepository();
 		}
 
 	}
 
-	public static class TestAuditEventRepository extends InMemoryAuditEventRepository {
+	static class TestAuditEventRepository extends InMemoryAuditEventRepository {
 
 	}
 
 	@Configuration(proxyBeanMethods = false)
-	protected static class CustomAuthenticationAuditListenerConfiguration {
+	static class CustomAuthenticationAuditListenerConfiguration {
 
 		@Bean
-		public TestAuthenticationAuditListener authenticationAuditListener() {
+		TestAuthenticationAuditListener authenticationAuditListener() {
 			return new TestAuthenticationAuditListener();
 		}
 
 	}
 
-	protected static class TestAuthenticationAuditListener extends AbstractAuthenticationAuditListener {
+	static class TestAuthenticationAuditListener extends AbstractAuthenticationAuditListener {
 
 		@Override
 		public void setApplicationEventPublisher(ApplicationEventPublisher publisher) {
@@ -133,38 +133,38 @@ class AuditAutoConfigurationTests {
 	}
 
 	@Configuration(proxyBeanMethods = false)
-	protected static class CustomAuthorizationAuditListenerConfiguration {
+	static class CustomAuthorizationAuditListenerConfiguration {
 
 		@Bean
-		public TestAuthorizationAuditListener authorizationAuditListener() {
+		TestAuthorizationAuditListener authorizationAuditListener() {
 			return new TestAuthorizationAuditListener();
 		}
 
 	}
 
-	protected static class TestAuthorizationAuditListener extends AbstractAuthorizationAuditListener {
+	static class TestAuthorizationAuditListener extends AbstractAuthorizationAuditListener {
 
 		@Override
 		public void setApplicationEventPublisher(ApplicationEventPublisher publisher) {
 		}
 
 		@Override
-		public void onApplicationEvent(AbstractAuthorizationEvent event) {
+		public void onApplicationEvent(AuthorizationEvent event) {
 		}
 
 	}
 
 	@Configuration(proxyBeanMethods = false)
-	protected static class CustomAuditListenerConfiguration {
+	static class CustomAuditListenerConfiguration {
 
 		@Bean
-		public TestAuditListener testAuditListener() {
+		TestAuditListener testAuditListener() {
 			return new TestAuditListener();
 		}
 
 	}
 
-	protected static class TestAuditListener extends AbstractAuditListener {
+	static class TestAuditListener extends AbstractAuditListener {
 
 		@Override
 		protected void onAuditEvent(AuditEvent event) {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,7 +73,7 @@ class ControllerEndpointHandlerMappingTests {
 	}
 
 	@Test
-	void mappingNarrowedToMethod() throws Exception {
+	void mappingNarrowedToMethod() {
 		ExposableControllerEndpoint first = firstEndpoint();
 		ControllerEndpointHandlerMapping mapping = createMapping("actuator", first);
 		assertThatExceptionOfType(HttpRequestMethodNotSupportedException.class)
@@ -127,30 +127,30 @@ class ControllerEndpointHandlerMappingTests {
 	}
 
 	@ControllerEndpoint(id = "first")
-	private static class FirstTestMvcEndpoint {
+	static class FirstTestMvcEndpoint {
 
 		@GetMapping("/")
-		public String get() {
+		String get() {
 			return "test";
 		}
 
 	}
 
 	@ControllerEndpoint(id = "second")
-	private static class SecondTestMvcEndpoint {
+	static class SecondTestMvcEndpoint {
 
 		@PostMapping("/")
-		public void save() {
+		void save() {
 
 		}
 
 	}
 
 	@ControllerEndpoint(id = "pathless")
-	private static class PathlessControllerEndpoint {
+	static class PathlessControllerEndpoint {
 
 		@GetMapping
-		public String get() {
+		String get() {
 			return "test";
 		}
 

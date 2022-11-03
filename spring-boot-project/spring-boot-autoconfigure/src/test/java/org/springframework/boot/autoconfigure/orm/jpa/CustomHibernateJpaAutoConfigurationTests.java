@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -96,25 +96,24 @@ class CustomHibernateJpaAutoConfigurationTests {
 
 	@Test
 	void defaultDatabaseIsSet() {
-		this.contextRunner.withPropertyValues("spring.datasource.url:jdbc:h2:mem:testdb",
-				"spring.datasource.initialization-mode:never").run((context) -> {
-					HibernateJpaVendorAdapter bean = context.getBean(HibernateJpaVendorAdapter.class);
-					Database database = (Database) ReflectionTestUtils.getField(bean, "database");
-					assertThat(database).isEqualTo(Database.DEFAULT);
-				});
+		this.contextRunner.withPropertyValues("spring.datasource.url:jdbc:h2:mem:testdb").run((context) -> {
+			HibernateJpaVendorAdapter bean = context.getBean(HibernateJpaVendorAdapter.class);
+			Database database = (Database) ReflectionTestUtils.getField(bean, "database");
+			assertThat(database).isEqualTo(Database.DEFAULT);
+		});
 	}
 
 	@Configuration(proxyBeanMethods = false)
 	@TestAutoConfigurationPackage(City.class)
-	protected static class TestConfiguration {
+	static class TestConfiguration {
 
 	}
 
 	@Configuration(proxyBeanMethods = false)
-	protected static class MockDataSourceConfiguration {
+	static class MockDataSourceConfiguration {
 
 		@Bean
-		public DataSource dataSource() {
+		DataSource dataSource() {
 			DataSource dataSource = mock(DataSource.class);
 			try {
 				given(dataSource.getConnection()).willReturn(mock(Connection.class));
@@ -136,12 +135,12 @@ class CustomHibernateJpaAutoConfigurationTests {
 		static final PhysicalNamingStrategy physicalNamingStrategy = new PhysicalNamingStrategyStandardImpl();
 
 		@Bean
-		public ImplicitNamingStrategy implicitNamingStrategy() {
+		ImplicitNamingStrategy implicitNamingStrategy() {
 			return implicitNamingStrategy;
 		}
 
 		@Bean
-		public PhysicalNamingStrategy physicalNamingStrategy() {
+		PhysicalNamingStrategy physicalNamingStrategy() {
 			return physicalNamingStrategy;
 		}
 
@@ -152,13 +151,13 @@ class CustomHibernateJpaAutoConfigurationTests {
 
 		@Bean
 		@Order(2)
-		public HibernatePropertiesCustomizer sampleCustomizer() {
+		HibernatePropertiesCustomizer sampleCustomizer() {
 			return ((hibernateProperties) -> hibernateProperties.put("test.counter", 2));
 		}
 
 		@Bean
 		@Order(1)
-		public HibernatePropertiesCustomizer anotherCustomizer() {
+		HibernatePropertiesCustomizer anotherCustomizer() {
 			return ((hibernateProperties) -> hibernateProperties.put("test.counter", 1));
 		}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,10 +20,9 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
-import javax.validation.Valid;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
-
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -92,7 +91,7 @@ class BindValidationFailureAnalyzerTests {
 	}
 
 	private static String failure(String property, String value, String reason) {
-		return String.format("Property: %s%n    Value: %s%n    Reason: %s", property, value, reason);
+		return String.format("Property: %s%n    Value: \"%s\"%n    Reason: %s", property, value, reason);
 	}
 
 	private FailureAnalysis performAnalysis(Class<?> configuration, String... environment) {
@@ -119,7 +118,7 @@ class BindValidationFailureAnalyzerTests {
 		MutablePropertySources sources = context.getEnvironment().getPropertySources();
 		Map<String, Object> map = new HashMap<>();
 		for (String pair : environment) {
-			int index = pair.indexOf("=");
+			int index = pair.indexOf('=');
 			String key = (index > 0) ? pair.substring(0, index) : pair;
 			String value = (index > 0) ? pair.substring(index + 1) : "";
 			map.put(key.trim(), value.trim());
@@ -150,27 +149,27 @@ class BindValidationFailureAnalyzerTests {
 		@Valid
 		private FieldValidationFailureProperties.Nested nested = new FieldValidationFailureProperties.Nested();
 
-		public String getFoo() {
+		String getFoo() {
 			return this.foo;
 		}
 
-		public void setFoo(String foo) {
+		void setFoo(String foo) {
 			this.foo = foo;
 		}
 
-		public int getValue() {
+		int getValue() {
 			return this.value;
 		}
 
-		public void setValue(int value) {
+		void setValue(int value) {
 			this.value = value;
 		}
 
-		public FieldValidationFailureProperties.Nested getNested() {
+		FieldValidationFailureProperties.Nested getNested() {
 			return this.nested;
 		}
 
-		public void setNested(FieldValidationFailureProperties.Nested nested) {
+		void setNested(FieldValidationFailureProperties.Nested nested) {
 			this.nested = nested;
 		}
 
@@ -179,11 +178,11 @@ class BindValidationFailureAnalyzerTests {
 			@NotNull
 			private String bar;
 
-			public String getBar() {
+			String getBar() {
 				return this.bar;
 			}
 
-			public void setBar(String bar) {
+			void setBar(String bar) {
 				this.bar = bar;
 			}
 

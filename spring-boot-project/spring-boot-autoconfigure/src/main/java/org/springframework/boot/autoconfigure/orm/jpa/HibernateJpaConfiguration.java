@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 import javax.sql.DataSource;
 
@@ -99,7 +98,7 @@ class HibernateJpaConfiguration extends JpaBaseConfiguration {
 		this.poolMetadataProvider = new CompositeDataSourcePoolMetadataProvider(metadataProviders.getIfAvailable());
 		this.hibernatePropertiesCustomizers = determineHibernatePropertiesCustomizers(
 				physicalNamingStrategy.getIfAvailable(), implicitNamingStrategy.getIfAvailable(), beanFactory,
-				hibernatePropertiesCustomizers.orderedStream().collect(Collectors.toList()));
+				hibernatePropertiesCustomizers.orderedStream().toList());
 	}
 
 	private List<HibernatePropertiesCustomizer> determineHibernatePropertiesCustomizers(
@@ -182,8 +181,8 @@ class HibernateJpaConfiguration extends JpaBaseConfiguration {
 			// NoClassDefFoundError can happen if Hibernate 4.2 is used and some
 			// containers (e.g. JBoss EAP 6) wrap it in the superclass LinkageError
 			if (!isUsingJndi()) {
-				throw new IllegalStateException("Unable to set Hibernate JTA " + "platform, are you using the correct "
-						+ "version of Hibernate?", ex);
+				throw new IllegalStateException(
+						"Unable to set Hibernate JTA platform, are you using the correct version of Hibernate?", ex);
 			}
 			// Assume that Hibernate will use JNDI
 			if (logger.isDebugEnabled()) {
@@ -204,7 +203,7 @@ class HibernateJpaConfiguration extends JpaBaseConfiguration {
 	private Object getNoJtaPlatformManager() {
 		for (String candidate : NO_JTA_PLATFORM_CLASSES) {
 			try {
-				return Class.forName(candidate).newInstance();
+				return Class.forName(candidate).getDeclaredConstructor().newInstance();
 			}
 			catch (Exception ex) {
 				// Continue searching

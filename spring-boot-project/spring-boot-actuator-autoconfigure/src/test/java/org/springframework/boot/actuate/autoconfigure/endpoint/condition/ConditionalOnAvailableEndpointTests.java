@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.springframework.boot.actuate.autoconfigure.endpoint.condition;
 
 import org.junit.jupiter.api.Test;
 
+import org.springframework.boot.actuate.autoconfigure.endpoint.expose.EndpointExposure;
 import org.springframework.boot.actuate.endpoint.EndpointFilter;
 import org.springframework.boot.actuate.endpoint.ExposableEndpoint;
 import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
@@ -40,8 +41,8 @@ class ConditionalOnAvailableEndpointTests {
 
 	@Test
 	void outcomeShouldMatchDefaults() {
-		this.contextRunner.run((context) -> assertThat(context).hasBean("info").hasBean("health")
-				.doesNotHaveBean("spring").doesNotHaveBean("test").doesNotHaveBean("shutdown"));
+		this.contextRunner.run((context) -> assertThat(context).hasBean("health").doesNotHaveBean("spring")
+				.doesNotHaveBean("test").doesNotHaveBean("shutdown"));
 	}
 
 	@Test
@@ -79,7 +80,7 @@ class ConditionalOnAvailableEndpointTests {
 	@Test
 	void outcomeWhenIncludeAllJmxButJmxDisabledShouldMatchDefaults() {
 		this.contextRunner.withPropertyValues("management.endpoints.jmx.exposure.include=*")
-				.run((context) -> assertThat(context).hasBean("info").hasBean("health").doesNotHaveBean("spring")
+				.run((context) -> assertThat(context).hasBean("health").doesNotHaveBean("spring")
 						.doesNotHaveBean("test").doesNotHaveBean("shutdown"));
 	}
 
@@ -95,8 +96,8 @@ class ConditionalOnAvailableEndpointTests {
 		this.contextRunner
 				.withPropertyValues("management.endpoints.jmx.exposure.include=*", "spring.jmx.enabled=true",
 						"management.endpoint.shutdown.enabled=true")
-				.run((context) -> assertThat(context).hasBean("info").hasBean("health").hasBean("test")
-						.hasBean("spring").hasBean("shutdown"));
+				.run((context) -> assertThat(context).hasBean("health").hasBean("test").hasBean("spring")
+						.hasBean("shutdown"));
 	}
 
 	@Test
@@ -182,6 +183,28 @@ class ConditionalOnAvailableEndpointTests {
 				(context) -> assertThat(context).hasBean("info").hasBean("health").hasBean("spring").hasBean("test"));
 	}
 
+	@Test // gh-21044
+	void outcomeWhenIncludeAllShouldMatchDashedEndpoint() {
+		this.contextRunner.withUserConfiguration(DashedEndpointConfiguration.class)
+				.withPropertyValues("management.endpoints.web.exposure.include=*")
+				.run((context) -> assertThat(context).hasSingleBean(DashedEndpoint.class));
+	}
+
+	@Test // gh-21044
+	void outcomeWhenIncludeDashedShouldMatchDashedEndpoint() {
+		this.contextRunner.withUserConfiguration(DashedEndpointConfiguration.class)
+				.withPropertyValues("management.endpoints.web.exposure.include=test-dashed")
+				.run((context) -> assertThat(context).hasSingleBean(DashedEndpoint.class));
+	}
+
+	@Test
+	void outcomeWhenEndpointNotExposedOnSpecifiedTechnology() {
+		this.contextRunner.withUserConfiguration(ExposureEndpointConfiguration.class)
+				.withPropertyValues("spring.jmx.enabled=true", "management.endpoints.jmx.exposure.include=test",
+						"management.endpoints.web.exposure.exclude=test")
+				.run((context) -> assertThat(context).doesNotHaveBean("unexposed"));
+	}
+
 	@Endpoint(id = "health")
 	static class HealthEndpoint {
 
@@ -207,6 +230,11 @@ class ConditionalOnAvailableEndpointTests {
 
 	}
 
+	@Endpoint(id = "test-dashed")
+	static class DashedEndpoint {
+
+	}
+
 	@EndpointExtension(endpoint = SpringEndpoint.class, filter = TestFilter.class)
 	static class SpringEndpointExtension {
 
@@ -226,31 +254,31 @@ class ConditionalOnAvailableEndpointTests {
 
 		@Bean
 		@ConditionalOnAvailableEndpoint
-		public HealthEndpoint health() {
+		HealthEndpoint health() {
 			return new HealthEndpoint();
 		}
 
 		@Bean
 		@ConditionalOnAvailableEndpoint
-		public InfoEndpoint info() {
+		InfoEndpoint info() {
 			return new InfoEndpoint();
 		}
 
 		@Bean
 		@ConditionalOnAvailableEndpoint
-		public SpringEndpoint spring() {
+		SpringEndpoint spring() {
 			return new SpringEndpoint();
 		}
 
 		@Bean
 		@ConditionalOnAvailableEndpoint
-		public TestEndpoint test() {
+		TestEndpoint test() {
 			return new TestEndpoint();
 		}
 
 		@Bean
 		@ConditionalOnAvailableEndpoint
-		public ShutdownEndpoint shutdown() {
+		ShutdownEndpoint shutdown() {
 			return new ShutdownEndpoint();
 		}
 
@@ -261,13 +289,13 @@ class ConditionalOnAvailableEndpointTests {
 
 		@Bean
 		@ConditionalOnAvailableEndpoint(endpoint = SpringEndpoint.class)
-		public String springComponent() {
+		String springComponent() {
 			return "springComponent";
 		}
 
 		@Bean
 		@ConditionalOnAvailableEndpoint
-		public SpringEndpointExtension springExtension() {
+		SpringEndpointExtension springExtension() {
 			return new SpringEndpointExtension();
 		}
 
@@ -278,8 +306,31 @@ class ConditionalOnAvailableEndpointTests {
 
 		@Bean
 		@ConditionalOnAvailableEndpoint
-		public String springcomp() {
+		String springcomp() {
 			return "springcomp";
+		}
+
+	}
+
+	@Configuration(proxyBeanMethods = false)
+	static class DashedEndpointConfiguration {
+
+		@Bean
+		@ConditionalOnAvailableEndpoint
+		DashedEndpoint dashedEndpoint() {
+			return new DashedEndpoint();
+		}
+
+	}
+
+	@Configuration(proxyBeanMethods = false)
+	static class ExposureEndpointConfiguration {
+
+		@Bean
+		@ConditionalOnAvailableEndpoint(endpoint = TestEndpoint.class,
+				exposure = { EndpointExposure.WEB, EndpointExposure.CLOUD_FOUNDRY })
+		String unexposed() {
+			return "unexposed";
 		}
 
 	}

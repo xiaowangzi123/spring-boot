@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,7 +54,9 @@ class StaticResourceRequestTests {
 		assertMatcher(matcher).matches("/js/file.js");
 		assertMatcher(matcher).matches("/images/file.css");
 		assertMatcher(matcher).matches("/webjars/file.css");
-		assertMatcher(matcher).matches("/foo/favicon.ico");
+		assertMatcher(matcher).matches("/favicon.ico");
+		assertMatcher(matcher).matches("/favicon.png");
+		assertMatcher(matcher).matches("/icons/icon-48x48.png");
 		assertMatcher(matcher).doesNotMatch("/bar");
 	}
 
@@ -91,7 +93,7 @@ class StaticResourceRequestTests {
 		return assertThat(new RequestMatcherAssert(context, matcher));
 	}
 
-	private static class RequestMatcherAssert implements AssertDelegateTarget {
+	static class RequestMatcherAssert implements AssertDelegateTarget {
 
 		private final StaticApplicationContext context;
 
@@ -136,7 +138,7 @@ class StaticResourceRequestTests {
 
 	}
 
-	private static class TestHttpWebHandlerAdapter extends HttpWebHandlerAdapter {
+	static class TestHttpWebHandlerAdapter extends HttpWebHandlerAdapter {
 
 		TestHttpWebHandlerAdapter(WebHandler delegate) {
 			super(delegate);

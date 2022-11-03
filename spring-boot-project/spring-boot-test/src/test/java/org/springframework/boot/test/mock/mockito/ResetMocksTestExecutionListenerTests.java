@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ import static org.mockito.Mockito.mock;
  * @author Andy Wilkinson
  */
 @ExtendWith(SpringExtension.class)
-@TestMethodOrder(MethodOrderer.Alphanumeric.class)
+@TestMethodOrder(MethodOrderer.MethodName.class)
 class ResetMocksTestExecutionListenerTests {
 
 	@Autowired
@@ -61,7 +61,7 @@ class ResetMocksTestExecutionListenerTests {
 		assertThat(getMock("after").greeting()).isNull();
 	}
 
-	public ExampleService getMock(String name) {
+	ExampleService getMock(String name) {
 		return this.context.getBean(name, ExampleService.class);
 	}
 
@@ -69,21 +69,21 @@ class ResetMocksTestExecutionListenerTests {
 	static class Config {
 
 		@Bean
-		public ExampleService before(MockitoBeans mockedBeans) {
+		ExampleService before(MockitoBeans mockedBeans) {
 			ExampleService mock = mock(ExampleService.class, MockReset.before());
 			mockedBeans.add(mock);
 			return mock;
 		}
 
 		@Bean
-		public ExampleService after(MockitoBeans mockedBeans) {
+		ExampleService after(MockitoBeans mockedBeans) {
 			ExampleService mock = mock(ExampleService.class, MockReset.after());
 			mockedBeans.add(mock);
 			return mock;
 		}
 
 		@Bean
-		public ExampleService none(MockitoBeans mockedBeans) {
+		ExampleService none(MockitoBeans mockedBeans) {
 			ExampleService mock = mock(ExampleService.class);
 			mockedBeans.add(mock);
 			return mock;
@@ -91,13 +91,13 @@ class ResetMocksTestExecutionListenerTests {
 
 		@Bean
 		@Lazy
-		public ExampleService fail() {
+		ExampleService fail() {
 			// gh-5870
 			throw new RuntimeException();
 		}
 
 		@Bean
-		public BrokenFactoryBean brokenFactoryBean() {
+		BrokenFactoryBean brokenFactoryBean() {
 			// gh-7270
 			return new BrokenFactoryBean();
 		}

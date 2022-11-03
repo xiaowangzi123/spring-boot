@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,12 +19,11 @@ package org.springframework.boot.autoconfigure.web.servlet;
 import java.io.IOException;
 import java.util.function.Consumer;
 
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -111,7 +110,7 @@ class ConditionalOnMissingFilterBeanTests {
 	static class WithTestFilterConfig {
 
 		@Bean
-		public TestFilter myTestFilter() {
+		TestFilter myTestFilter() {
 			return new TestFilter();
 		}
 
@@ -121,7 +120,7 @@ class ConditionalOnMissingFilterBeanTests {
 	static class WithoutTestFilterConfig {
 
 		@Bean
-		public OtherFilter myOtherFilter() {
+		OtherFilter myOtherFilter() {
 			return new OtherFilter();
 		}
 
@@ -131,7 +130,7 @@ class ConditionalOnMissingFilterBeanTests {
 	static class WithoutTestFilterRegistrationConfig {
 
 		@Bean
-		public FilterRegistrationBean<OtherFilter> myOtherFilter() {
+		FilterRegistrationBean<OtherFilter> myOtherFilter() {
 			return new FilterRegistrationBean<>(new OtherFilter());
 		}
 
@@ -141,7 +140,7 @@ class ConditionalOnMissingFilterBeanTests {
 	static class WithTestFilterRegistrationConfig {
 
 		@Bean
-		public FilterRegistrationBean<TestFilter> myTestFilter() {
+		FilterRegistrationBean<TestFilter> myTestFilter() {
 			return new FilterRegistrationBean<>(new TestFilter());
 		}
 
@@ -152,7 +151,7 @@ class ConditionalOnMissingFilterBeanTests {
 
 		@Bean
 		@ConditionalOnMissingFilterBean(TestFilter.class)
-		public TestFilter testFilter() {
+		TestFilter testFilter() {
 			return new TestFilter();
 		}
 
@@ -163,7 +162,7 @@ class ConditionalOnMissingFilterBeanTests {
 
 		@Bean
 		@ConditionalOnMissingFilterBean
-		public TestFilter testFilter() {
+		TestFilter testFilter() {
 			return new TestFilter();
 		}
 
@@ -174,7 +173,7 @@ class ConditionalOnMissingFilterBeanTests {
 
 		@Bean
 		@ConditionalOnMissingFilterBean
-		public FilterRegistrationBean<TestFilter> testFilter() {
+		FilterRegistrationBean<TestFilter> testFilter() {
 			return new FilterRegistrationBean<>(new TestFilter());
 		}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,18 @@
 package org.springframework.boot.actuate.autoconfigure.endpoint.web.documentation;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.actuate.logging.LoggersEndpoint;
 import org.springframework.boot.logging.LogLevel;
 import org.springframework.boot.logging.LoggerConfiguration;
+import org.springframework.boot.logging.LoggerGroups;
 import org.springframework.boot.logging.LoggingSystem;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
@@ -33,9 +37,10 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.restdocs.mockmvc.MockMvcRestDocumentation;
 import org.springframework.restdocs.payload.FieldDescriptor;
+import org.springframework.restdocs.payload.JsonFieldType;
 
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.verify;
+import static org.mockito.BDDMockito.then;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
 import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
@@ -54,8 +59,20 @@ class LoggersEndpointDocumentationTests extends MockMvcEndpointDocumentationTest
 			fieldWithPath("configuredLevel").description("Configured level of the logger, if any.").optional(),
 			fieldWithPath("effectiveLevel").description("Effective level of the logger."));
 
+	private static final List<FieldDescriptor> groupLevelFields;
+
+	static {
+		groupLevelFields = Arrays.asList(
+				fieldWithPath("configuredLevel").description("Configured level of the logger group, if any.")
+						.type(JsonFieldType.STRING).optional(),
+				fieldWithPath("members").description("Loggers that are part of this group"));
+	}
+
 	@MockBean
 	private LoggingSystem loggingSystem;
+
+	@Autowired
+	private LoggerGroups loggerGroups;
 
 	@Test
 	void allLoggers() throws Exception {
@@ -66,8 +83,10 @@ class LoggersEndpointDocumentationTests extends MockMvcEndpointDocumentationTest
 		this.mockMvc.perform(get("/actuator/loggers")).andExpect(status().isOk())
 				.andDo(MockMvcRestDocumentation.document("loggers/all",
 						responseFields(fieldWithPath("levels").description("Levels support by the logging system."),
-								fieldWithPath("loggers").description("Loggers keyed by name."))
-										.andWithPrefix("loggers.*.", levelFields)));
+								fieldWithPath("loggers").description("Loggers keyed by name."),
+								fieldWithPath("groups").description("Logger groups keyed by name"))
+										.andWithPrefix("loggers.*.", levelFields)
+										.andWithPrefix("groups.*.", groupLevelFields)));
 	}
 
 	@Test
@@ -79,14 +98,43 @@ class LoggersEndpointDocumentationTests extends MockMvcEndpointDocumentationTest
 	}
 
 	@Test
+	void loggerGroups() throws Exception {
+		this.loggerGroups.get("test").configureLogLevel(LogLevel.INFO, (member, level) -> {
+		});
+		this.mockMvc.perform(get("/actuator/loggers/test")).andExpect(status().isOk())
+				.andDo(MockMvcRestDocumentation.document("loggers/group", responseFields(groupLevelFields)));
+		resetLogger();
+	}
+
+	@Test
 	void setLogLevel() throws Exception {
 		this.mockMvc
 				.perform(post("/actuator/loggers/com.example").content("{\"configuredLevel\":\"debug\"}")
 						.contentType(MediaType.APPLICATION_JSON))
 				.andExpect(status().isNoContent())
 				.andDo(MockMvcRestDocumentation.document("loggers/set", requestFields(fieldWithPath("configuredLevel")
-						.description("Level for the logger. May be" + " omitted to clear the level.").optional())));
-		verify(this.loggingSystem).setLogLevel("com.example", LogLevel.DEBUG);
+						.description("Level for the logger. May be omitted to clear the level.").optional())));
+		then(this.loggingSystem).should().setLogLevel("com.example", LogLevel.DEBUG);
+	}
+
+	@Test
+	void setLogLevelOfLoggerGroup() throws Exception {
+		this.mockMvc
+				.perform(post("/actuator/loggers/test")
+						.content("{\"configuredLevel\":\"debug\"}").contentType(MediaType.APPLICATION_JSON))
+				.andExpect(status().isNoContent()).andDo(
+						MockMvcRestDocumentation.document("loggers/setGroup",
+								requestFields(fieldWithPath("configuredLevel").description(
+										"Level for the logger group. May be omitted to clear the level of the loggers.")
+										.optional())));
+		then(this.loggingSystem).should().setLogLevel("test.member1", LogLevel.DEBUG);
+		then(this.loggingSystem).should().setLogLevel("test.member2", LogLevel.DEBUG);
+		resetLogger();
+	}
+
+	private void resetLogger() {
+		this.loggerGroups.get("test").configureLogLevel(LogLevel.INFO, (a, b) -> {
+		});
 	}
 
 	@Test
@@ -94,7 +142,7 @@ class LoggersEndpointDocumentationTests extends MockMvcEndpointDocumentationTest
 		this.mockMvc
 				.perform(post("/actuator/loggers/com.example").content("{}").contentType(MediaType.APPLICATION_JSON))
 				.andExpect(status().isNoContent()).andDo(MockMvcRestDocumentation.document("loggers/clear"));
-		verify(this.loggingSystem).setLogLevel("com.example", null);
+		then(this.loggingSystem).should().setLogLevel("com.example", null);
 	}
 
 	@Configuration(proxyBeanMethods = false)
@@ -102,8 +150,15 @@ class LoggersEndpointDocumentationTests extends MockMvcEndpointDocumentationTest
 	static class TestConfiguration {
 
 		@Bean
-		public LoggersEndpoint endpoint(LoggingSystem loggingSystem) {
-			return new LoggersEndpoint(loggingSystem);
+		LoggersEndpoint endpoint(LoggingSystem loggingSystem, LoggerGroups groups) {
+			groups.putAll(getLoggerGroups());
+			groups.get("test").configureLogLevel(LogLevel.INFO, (member, level) -> {
+			});
+			return new LoggersEndpoint(loggingSystem, groups);
+		}
+
+		private Map<String, List<String>> getLoggerGroups() {
+			return Collections.singletonMap("test", Arrays.asList("test.member1", "test.member2"));
 		}
 
 	}

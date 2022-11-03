@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -71,17 +71,17 @@ class MetricsEndpointWebIntegrationTests {
 	static class TestConfiguration {
 
 		@Bean
-		public MeterRegistry registry() {
+		MeterRegistry registry() {
 			return registry;
 		}
 
 		@Bean
-		public MetricsEndpoint metricsEndpoint(MeterRegistry meterRegistry) {
+		MetricsEndpoint metricsEndpoint(MeterRegistry meterRegistry) {
 			return new MetricsEndpoint(meterRegistry);
 		}
 
 		@Bean
-		public JvmMemoryMetrics jvmMemoryMetrics(MeterRegistry meterRegistry) {
+		JvmMemoryMetrics jvmMemoryMetrics(MeterRegistry meterRegistry) {
 			JvmMemoryMetrics memoryMetrics = new JvmMemoryMetrics();
 			memoryMetrics.bindTo(meterRegistry);
 			return memoryMetrics;

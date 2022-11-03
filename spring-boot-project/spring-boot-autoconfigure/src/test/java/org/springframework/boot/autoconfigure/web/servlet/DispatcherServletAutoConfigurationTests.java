@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,8 @@
 
 package org.springframework.boot.autoconfigure.web.servlet;
 
-import javax.servlet.MultipartConfigElement;
-import javax.servlet.http.HttpServletRequest;
-
+import jakarta.servlet.MultipartConfigElement;
+import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -29,7 +28,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.util.unit.DataSize;
-import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 import org.springframework.web.multipart.MultipartResolver;
 import org.springframework.web.servlet.DispatcherServlet;
@@ -46,7 +44,7 @@ import static org.mockito.Mockito.mock;
  */
 class DispatcherServletAutoConfigurationTests {
 
-	private WebApplicationContextRunner contextRunner = new WebApplicationContextRunner()
+	private final WebApplicationContextRunner contextRunner = new WebApplicationContextRunner()
 			.withConfiguration(AutoConfigurations.of(DispatcherServletAutoConfiguration.class));
 
 	@Test
@@ -83,13 +81,12 @@ class DispatcherServletAutoConfigurationTests {
 
 	@Test
 	void registrationOverrideWithAutowiredServlet() {
-		this.contextRunner.withUserConfiguration(CustomAutowiredRegistration.class, CustomDispatcherServletPath.class)
-				.run((context) -> {
-					ServletRegistrationBean<?> registration = context.getBean(ServletRegistrationBean.class);
-					assertThat(registration.getUrlMappings()).containsExactly("/foo");
-					assertThat(registration.getServletName()).isEqualTo("customDispatcher");
-					assertThat(context).hasSingleBean(DispatcherServlet.class);
-				});
+		this.contextRunner.withUserConfiguration(CustomAutowiredRegistration.class).run((context) -> {
+			ServletRegistrationBean<?> registration = context.getBean(ServletRegistrationBean.class);
+			assertThat(registration.getUrlMappings()).containsExactly("/foo");
+			assertThat(registration.getServletName()).isEqualTo("customDispatcher");
+			assertThat(context).hasSingleBean(DispatcherServlet.class);
+		});
 	}
 
 	@Test
@@ -145,10 +142,11 @@ class DispatcherServletAutoConfigurationTests {
 	void dispatcherServletDefaultConfig() {
 		this.contextRunner.run((context) -> {
 			DispatcherServlet dispatcherServlet = context.getBean(DispatcherServlet.class);
-			assertThat(dispatcherServlet).extracting("throwExceptionIfNoHandlerFound").containsExactly(false);
-			assertThat(dispatcherServlet).extracting("dispatchOptionsRequest").containsExactly(true);
-			assertThat(dispatcherServlet).extracting("dispatchTraceRequest").containsExactly(false);
-			assertThat(dispatcherServlet).extracting("enableLoggingRequestDetails").containsExactly(false);
+			assertThat(dispatcherServlet).extracting("throwExceptionIfNoHandlerFound").isEqualTo(false);
+			assertThat(dispatcherServlet).extracting("dispatchOptionsRequest").isEqualTo(true);
+			assertThat(dispatcherServlet).extracting("dispatchTraceRequest").isEqualTo(false);
+			assertThat(dispatcherServlet).extracting("enableLoggingRequestDetails").isEqualTo(false);
+			assertThat(dispatcherServlet).extracting("publishEvents").isEqualTo(true);
 			assertThat(context.getBean("dispatcherServletRegistration")).hasFieldOrPropertyWithValue("loadOnStartup",
 					-1);
 		});
@@ -156,23 +154,26 @@ class DispatcherServletAutoConfigurationTests {
 
 	@Test
 	void dispatcherServletCustomConfig() {
-		this.contextRunner.withPropertyValues("spring.mvc.throw-exception-if-no-handler-found:true",
-				"spring.mvc.dispatch-options-request:false", "spring.mvc.dispatch-trace-request:true",
-				"spring.mvc.servlet.load-on-startup=5").run((context) -> {
+		this.contextRunner
+				.withPropertyValues("spring.mvc.throw-exception-if-no-handler-found:true",
+						"spring.mvc.dispatch-options-request:false", "spring.mvc.dispatch-trace-request:true",
+						"spring.mvc.publish-request-handled-events:false", "spring.mvc.servlet.load-on-startup=5")
+				.run((context) -> {
 					DispatcherServlet dispatcherServlet = context.getBean(DispatcherServlet.class);
-					assertThat(dispatcherServlet).extracting("throwExceptionIfNoHandlerFound").containsExactly(true);
-					assertThat(dispatcherServlet).extracting("dispatchOptionsRequest").containsExactly(false);
-					assertThat(dispatcherServlet).extracting("dispatchTraceRequest").containsExactly(true);
+					assertThat(dispatcherServlet).extracting("throwExceptionIfNoHandlerFound").isEqualTo(true);
+					assertThat(dispatcherServlet).extracting("dispatchOptionsRequest").isEqualTo(false);
+					assertThat(dispatcherServlet).extracting("dispatchTraceRequest").isEqualTo(true);
+					assertThat(dispatcherServlet).extracting("publishEvents").isEqualTo(false);
 					assertThat(context.getBean("dispatcherServletRegistration"))
 							.hasFieldOrPropertyWithValue("loadOnStartup", 5);
 				});
 	}
 
 	@Configuration(proxyBeanMethods = false)
-	protected static class MultipartConfiguration {
+	static class MultipartConfiguration {
 
 		@Bean
-		public MultipartConfigElement multipartConfig() {
+		MultipartConfigElement multipartConfig() {
 			MultipartConfigFactory factory = new MultipartConfigFactory();
 			factory.setMaxFileSize(DataSize.ofKilobytes(128));
 			factory.setMaxRequestSize(DataSize.ofKilobytes(128));
@@ -182,30 +183,30 @@ class DispatcherServletAutoConfigurationTests {
 	}
 
 	@Configuration(proxyBeanMethods = false)
-	protected static class CustomDispatcherServletDifferentName {
+	static class CustomDispatcherServletDifferentName {
 
 		@Bean
-		public DispatcherServlet customDispatcherServlet() {
+		DispatcherServlet customDispatcherServlet() {
 			return new DispatcherServlet();
 		}
 
 	}
 
 	@Configuration(proxyBeanMethods = false)
-	protected static class CustomDispatcherServletPath {
+	static class CustomDispatcherServletPath {
 
 		@Bean
-		public DispatcherServletPath dispatcherServletPath() {
+		DispatcherServletPath dispatcherServletPath() {
 			return mock(DispatcherServletPath.class);
 		}
 
 	}
 
 	@Configuration(proxyBeanMethods = false)
-	protected static class CustomAutowiredRegistration {
+	static class CustomAutowiredRegistration {
 
 		@Bean
-		public ServletRegistrationBean<?> dispatcherServletRegistration(DispatcherServlet dispatcherServlet) {
+		ServletRegistrationBean<?> dispatcherServletRegistration(DispatcherServlet dispatcherServlet) {
 			ServletRegistrationBean<DispatcherServlet> registration = new ServletRegistrationBean<>(dispatcherServlet,
 					"/foo");
 			registration.setName("customDispatcher");
@@ -213,48 +214,47 @@ class DispatcherServletAutoConfigurationTests {
 		}
 
 		@Bean
-		public DispatcherServletPath dispatcherServletPath() {
+		DispatcherServletPath dispatcherServletPath() {
 			return mock(DispatcherServletPath.class);
 		}
 
 	}
 
 	@Configuration(proxyBeanMethods = false)
-	protected static class NonServletConfiguration {
+	static class NonServletConfiguration {
 
 		@Bean
-		public String dispatcherServlet() {
+		String dispatcherServlet() {
 			return "spring";
 		}
 
 	}
 
 	@Configuration(proxyBeanMethods = false)
-	protected static class MultipartResolverConfiguration {
+	static class MultipartResolverConfiguration {
 
 		@Bean
-		public MultipartResolver getMultipartResolver() {
+		MultipartResolver getMultipartResolver() {
 			return new MockMultipartResolver();
 		}
 
 	}
 
 	@Configuration(proxyBeanMethods = false)
-	protected static class CustomDispatcherServletSameName {
+	static class CustomDispatcherServletSameName {
 
 		@Bean(name = DispatcherServletAutoConfiguration.DEFAULT_DISPATCHER_SERVLET_BEAN_NAME)
-		public DispatcherServlet dispatcherServlet() {
+		DispatcherServlet dispatcherServlet() {
 			return new DispatcherServlet();
 		}
 
 	}
 
 	@Configuration(proxyBeanMethods = false)
-	protected static class CustomDispatcherServletRegistration {
+	static class CustomDispatcherServletRegistration {
 
 		@Bean(name = DispatcherServletAutoConfiguration.DEFAULT_DISPATCHER_SERVLET_REGISTRATION_BEAN_NAME)
-		public ServletRegistrationBean<DispatcherServlet> dispatcherServletRegistration(
-				DispatcherServlet dispatcherServlet) {
+		ServletRegistrationBean<DispatcherServlet> dispatcherServletRegistration(DispatcherServlet dispatcherServlet) {
 			ServletRegistrationBean<DispatcherServlet> registration = new ServletRegistrationBean<>(dispatcherServlet,
 					"/foo");
 			registration.setName("customDispatcher");
@@ -263,7 +263,7 @@ class DispatcherServletAutoConfigurationTests {
 
 	}
 
-	private static class MockMultipartResolver implements MultipartResolver {
+	static class MockMultipartResolver implements MultipartResolver {
 
 		@Override
 		public boolean isMultipart(HttpServletRequest request) {
@@ -271,7 +271,7 @@ class DispatcherServletAutoConfigurationTests {
 		}
 
 		@Override
-		public MultipartHttpServletRequest resolveMultipart(HttpServletRequest request) throws MultipartException {
+		public MultipartHttpServletRequest resolveMultipart(HttpServletRequest request) {
 			return null;
 		}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import java.lang.management.ManagementFactory;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -36,6 +37,7 @@ import org.apache.commons.logging.Log;
 
 import org.springframework.boot.devtools.logger.DevToolsLogFactory;
 import org.springframework.boot.devtools.settings.DevToolsSettings;
+import org.springframework.core.log.LogMessage;
 import org.springframework.util.StringUtils;
 
 /**
@@ -54,7 +56,7 @@ final class ChangeableUrls implements Iterable<URL> {
 		DevToolsSettings settings = DevToolsSettings.get();
 		List<URL> reloadableUrls = new ArrayList<>(urls.length);
 		for (URL url : urls) {
-			if ((settings.isRestartInclude(url) || isFolderUrl(url.toString())) && !settings.isRestartExclude(url)) {
+			if ((settings.isRestartInclude(url) || isDirectoryUrl(url.toString())) && !settings.isRestartExclude(url)) {
 				reloadableUrls.add(url);
 			}
 		}
@@ -64,7 +66,7 @@ final class ChangeableUrls implements Iterable<URL> {
 		this.urls = Collections.unmodifiableList(reloadableUrls);
 	}
 
-	private boolean isFolderUrl(String urlString) {
+	private boolean isDirectoryUrl(String urlString) {
 		return urlString.startsWith("file:") && urlString.endsWith("/");
 	}
 
@@ -73,15 +75,15 @@ final class ChangeableUrls implements Iterable<URL> {
 		return this.urls.iterator();
 	}
 
-	public int size() {
+	int size() {
 		return this.urls.size();
 	}
 
-	public URL[] toArray() {
+	URL[] toArray() {
 		return this.urls.toArray(new URL[0]);
 	}
 
-	public List<URL> toList() {
+	List<URL> toList() {
 		return Collections.unmodifiableList(this.urls);
 	}
 
@@ -90,7 +92,7 @@ final class ChangeableUrls implements Iterable<URL> {
 		return this.urls.toString();
 	}
 
-	public static ChangeableUrls fromClassLoader(ClassLoader classLoader) {
+	static ChangeableUrls fromClassLoader(ClassLoader classLoader) {
 		List<URL> urls = new ArrayList<>();
 		for (URL url : urlsFromClassLoader(classLoader)) {
 			urls.add(url);
@@ -100,8 +102,8 @@ final class ChangeableUrls implements Iterable<URL> {
 	}
 
 	private static URL[] urlsFromClassLoader(ClassLoader classLoader) {
-		if (classLoader instanceof URLClassLoader) {
-			return ((URLClassLoader) classLoader).getURLs();
+		if (classLoader instanceof URLClassLoader urlClassLoader) {
+			return urlClassLoader.getURLs();
 		}
 		return Stream.of(ManagementFactory.getRuntimeMXBean().getClassPath().split(File.pathSeparator))
 				.map(ChangeableUrls::toURL).toArray(URL[]::new);
@@ -156,7 +158,13 @@ final class ChangeableUrls implements Iterable<URL> {
 					urls.add(referenced);
 				}
 				else {
-					nonExistentEntries.add(referenced);
+					referenced = new URL(jarUrl, URLDecoder.decode(entry, "UTF-8"));
+					if (new File(referenced.getFile()).exists()) {
+						urls.add(referenced);
+					}
+					else {
+						nonExistentEntries.add(referenced);
+					}
 				}
 			}
 			catch (MalformedURLException ex) {
@@ -164,18 +172,18 @@ final class ChangeableUrls implements Iterable<URL> {
 			}
 		}
 		if (!nonExistentEntries.isEmpty()) {
-			logger.info("The Class-Path manifest attribute in " + jarFile.getName()
+			logger.info(LogMessage.of(() -> "The Class-Path manifest attribute in " + jarFile.getName()
 					+ " referenced one or more files that do not exist: "
-					+ StringUtils.collectionToCommaDelimitedString(nonExistentEntries));
+					+ StringUtils.collectionToCommaDelimitedString(nonExistentEntries)));
 		}
 		return urls;
 	}
 
-	public static ChangeableUrls fromUrls(Collection<URL> urls) {
+	static ChangeableUrls fromUrls(Collection<URL> urls) {
 		return fromUrls(new ArrayList<>(urls).toArray(new URL[urls.size()]));
 	}
 
-	public static ChangeableUrls fromUrls(URL... urls) {
+	static ChangeableUrls fromUrls(URL... urls) {
 		return new ChangeableUrls(urls);
 	}
 

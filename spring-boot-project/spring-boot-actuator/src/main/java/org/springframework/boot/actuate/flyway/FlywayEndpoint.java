@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,13 +21,11 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.MigrationInfo;
 import org.flywaydb.core.api.MigrationState;
-import org.flywaydb.core.api.MigrationType;
 
 import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
 import org.springframework.boot.actuate.endpoint.annotation.ReadOperation;
@@ -118,7 +116,7 @@ public class FlywayEndpoint {
 		private final List<FlywayMigration> migrations;
 
 		private FlywayDescriptor(MigrationInfo[] migrations) {
-			this.migrations = Stream.of(migrations).map(FlywayMigration::new).collect(Collectors.toList());
+			this.migrations = Stream.of(migrations).map(FlywayMigration::new).toList();
 		}
 
 		public FlywayDescriptor(List<FlywayMigration> migrations) {
@@ -136,7 +134,7 @@ public class FlywayEndpoint {
 	 */
 	public static final class FlywayMigration {
 
-		private final MigrationType type;
+		private final String type;
 
 		private final Integer checksum;
 
@@ -157,7 +155,7 @@ public class FlywayEndpoint {
 		private final Integer executionTime;
 
 		private FlywayMigration(MigrationInfo info) {
-			this.type = info.getType();
+			this.type = info.getType().name();
 			this.checksum = info.getChecksum();
 			this.version = nullSafeToString(info.getVersion());
 			this.description = info.getDescription();
@@ -177,7 +175,7 @@ public class FlywayEndpoint {
 			return (date != null) ? Instant.ofEpochMilli(date.getTime()) : null;
 		}
 
-		public MigrationType getType() {
+		public String getType() {
 			return this.type;
 		}
 

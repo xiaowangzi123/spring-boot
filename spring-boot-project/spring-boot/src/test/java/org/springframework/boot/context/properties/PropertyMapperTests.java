@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException
  *
  * @author Phillip Webb
  * @author Artsiom Yudovin
+ * @author Chris Bono
  */
 class PropertyMapperTests {
 
@@ -207,7 +208,21 @@ class PropertyMapperTests {
 		assertThat(result).isEqualTo("123");
 	}
 
-	private static class Count<T> implements Supplier<T> {
+	@Test
+	void toImmutableReturnsNewInstance() {
+		Immutable instance = this.map.from("Spring").toInstance(Immutable::of);
+		instance = this.map.from("123").as(Integer::valueOf).to(instance, Immutable::withAge);
+		assertThat(instance).hasToString("Spring 123");
+	}
+
+	@Test
+	void toImmutableWhenFilteredReturnsOriginalInstance() {
+		Immutable instance = this.map.from("Spring").toInstance(Immutable::of);
+		instance = this.map.from("123").when("345"::equals).as(Integer::valueOf).to(instance, Immutable::withAge);
+		assertThat(instance).hasToString("Spring null");
+	}
+
+	static class Count<T> implements Supplier<T> {
 
 		private final Supplier<T> source;
 
@@ -223,13 +238,13 @@ class PropertyMapperTests {
 			return this.source.get();
 		}
 
-		public int getCount() {
+		int getCount() {
 			return this.count;
 		}
 
 	}
 
-	private static class ExampleSource {
+	static class ExampleSource {
 
 		private final String name;
 
@@ -237,22 +252,48 @@ class PropertyMapperTests {
 			this.name = name;
 		}
 
-		public String getName() {
+		String getName() {
 			return this.name;
 		}
 
 	}
 
-	private static class ExampleDest {
+	static class ExampleDest {
 
 		private String name;
 
-		public void setName(String name) {
+		void setName(String name) {
 			this.name = name;
 		}
 
-		public String getName() {
+		String getName() {
 			return this.name;
+		}
+
+	}
+
+	static class Immutable {
+
+		private final String name;
+
+		private final Integer age;
+
+		Immutable(String name, Integer age) {
+			this.name = name;
+			this.age = age;
+		}
+
+		Immutable withAge(Integer age) {
+			return new Immutable(this.name, age);
+		}
+
+		@Override
+		public String toString() {
+			return "%s %s".formatted(this.name, this.age);
+		}
+
+		static Immutable of(String name) {
+			return new Immutable(name, null);
 		}
 
 	}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -88,7 +88,7 @@ class CentralDirectoryParserTests {
 		assertThat(headers.hasNext()).isFalse();
 	}
 
-	private static class Collector implements CentralDirectoryVisitor {
+	static class Collector implements CentralDirectoryVisitor {
 
 		private List<CentralDirectoryFileHeader> headers = new ArrayList<>();
 
@@ -97,7 +97,7 @@ class CentralDirectoryParserTests {
 		}
 
 		@Override
-		public void visitFileHeader(CentralDirectoryFileHeader fileHeader, int dataOffset) {
+		public void visitFileHeader(CentralDirectoryFileHeader fileHeader, long dataOffset) {
 			this.headers.add(fileHeader.clone());
 		}
 
@@ -105,13 +105,13 @@ class CentralDirectoryParserTests {
 		public void visitEnd() {
 		}
 
-		public List<CentralDirectoryFileHeader> getHeaders() {
+		List<CentralDirectoryFileHeader> getHeaders() {
 			return this.headers;
 		}
 
 	}
 
-	private static class MockCentralDirectoryVisitor implements CentralDirectoryVisitor {
+	static class MockCentralDirectoryVisitor implements CentralDirectoryVisitor {
 
 		private final List<String> invocations = new ArrayList<>();
 
@@ -121,7 +121,7 @@ class CentralDirectoryParserTests {
 		}
 
 		@Override
-		public void visitFileHeader(CentralDirectoryFileHeader fileHeader, int dataOffset) {
+		public void visitFileHeader(CentralDirectoryFileHeader fileHeader, long dataOffset) {
 			this.invocations.add("visitFileHeader");
 		}
 
@@ -130,7 +130,7 @@ class CentralDirectoryParserTests {
 			this.invocations.add("visitEnd");
 		}
 
-		public List<String> getInvocations() {
+		List<String> getInvocations() {
 			return this.invocations;
 		}
 

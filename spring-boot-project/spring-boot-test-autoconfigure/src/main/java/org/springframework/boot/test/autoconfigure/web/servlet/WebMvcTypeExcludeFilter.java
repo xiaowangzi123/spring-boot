@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
+import org.springframework.boot.autoconfigure.web.servlet.WebMvcRegistrations;
 import org.springframework.boot.context.TypeExcludeFilter;
 import org.springframework.boot.jackson.JsonComponent;
 import org.springframework.boot.test.autoconfigure.filter.StandardAnnotationCustomizableTypeExcludeFilter;
@@ -35,6 +36,7 @@ import org.springframework.util.ClassUtils;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
+import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
@@ -42,13 +44,16 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  *
  * @author Phillip Webb
  * @author Madhura Bhave
+ * @author Yanming Zhou
+ * @since 2.2.1
  */
-class WebMvcTypeExcludeFilter extends StandardAnnotationCustomizableTypeExcludeFilter<WebMvcTest> {
+public final class WebMvcTypeExcludeFilter extends StandardAnnotationCustomizableTypeExcludeFilter<WebMvcTest> {
 
 	private static final Class<?>[] NO_CONTROLLERS = {};
 
-	private static final String[] OPTIONAL_INCLUDES = {
-			"org.springframework.security.config.annotation.web.WebSecurityConfigurer" };
+	private static final String[] OPTIONAL_INCLUDES = { "com.fasterxml.jackson.databind.Module",
+			"org.springframework.security.config.annotation.web.WebSecurityConfigurer",
+			"org.springframework.security.web.SecurityFilterChain", "org.thymeleaf.dialect.IDialect" };
 
 	private static final Set<Class<?>> DEFAULT_INCLUDES;
 
@@ -57,7 +62,8 @@ class WebMvcTypeExcludeFilter extends StandardAnnotationCustomizableTypeExcludeF
 		includes.add(ControllerAdvice.class);
 		includes.add(JsonComponent.class);
 		includes.add(WebMvcConfigurer.class);
-		includes.add(javax.servlet.Filter.class);
+		includes.add(WebMvcRegistrations.class);
+		includes.add(jakarta.servlet.Filter.class);
 		includes.add(FilterRegistrationBean.class);
 		includes.add(DelegatingFilterProxyRegistrationBean.class);
 		includes.add(HandlerMethodArgumentResolver.class);
@@ -65,6 +71,7 @@ class WebMvcTypeExcludeFilter extends StandardAnnotationCustomizableTypeExcludeF
 		includes.add(ErrorAttributes.class);
 		includes.add(Converter.class);
 		includes.add(GenericConverter.class);
+		includes.add(HandlerInterceptor.class);
 		for (String optionalInclude : OPTIONAL_INCLUDES) {
 			try {
 				includes.add(ClassUtils.forName(optionalInclude, null));

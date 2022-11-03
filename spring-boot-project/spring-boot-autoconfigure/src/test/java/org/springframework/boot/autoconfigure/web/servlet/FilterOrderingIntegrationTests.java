@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
-import javax.servlet.Filter;
-
+import jakarta.servlet.Filter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -30,6 +29,7 @@ import org.springframework.boot.autoconfigure.context.PropertyPlaceholderAutoCon
 import org.springframework.boot.autoconfigure.http.HttpMessageConvertersAutoConfiguration;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
 import org.springframework.boot.autoconfigure.session.SessionAutoConfiguration;
+import org.springframework.boot.test.util.TestPropertyValues;
 import org.springframework.boot.testsupport.web.servlet.MockServletWebServer.RegisteredFilter;
 import org.springframework.boot.web.server.WebServerFactoryCustomizerBeanPostProcessor;
 import org.springframework.boot.web.servlet.context.AnnotationConfigServletWebServerApplicationContext;
@@ -89,6 +89,7 @@ class FilterOrderingIntegrationTests {
 				TestRedisConfiguration.class, WebMvcAutoConfiguration.class, SecurityAutoConfiguration.class,
 				SessionAutoConfiguration.class, HttpMessageConvertersAutoConfiguration.class,
 				PropertyPlaceholderAutoConfiguration.class, HttpEncodingAutoConfiguration.class);
+		TestPropertyValues.of("spring.mvc.hiddenmethod.filter.enabled:true").applyTo(this.context);
 		this.context.refresh();
 	}
 
@@ -96,12 +97,12 @@ class FilterOrderingIntegrationTests {
 	static class MockWebServerConfiguration {
 
 		@Bean
-		public MockServletWebServerFactory webServerFactory() {
+		MockServletWebServerFactory webServerFactory() {
 			return new MockServletWebServerFactory();
 		}
 
 		@Bean
-		public WebServerFactoryCustomizerBeanPostProcessor ServletWebServerCustomizerBeanPostProcessor() {
+		WebServerFactoryCustomizerBeanPostProcessor ServletWebServerCustomizerBeanPostProcessor() {
 			return new WebServerFactoryCustomizerBeanPostProcessor();
 		}
 
@@ -112,7 +113,7 @@ class FilterOrderingIntegrationTests {
 	static class TestSessionConfiguration {
 
 		@Bean
-		public MapSessionRepository mapSessionRepository() {
+		MapSessionRepository mapSessionRepository() {
 			return new MapSessionRepository(new ConcurrentHashMap<>());
 		}
 
@@ -122,7 +123,7 @@ class FilterOrderingIntegrationTests {
 	static class TestRedisConfiguration {
 
 		@Bean
-		public RedisConnectionFactory redisConnectionFactory() {
+		RedisConnectionFactory redisConnectionFactory() {
 			RedisConnectionFactory connectionFactory = mock(RedisConnectionFactory.class);
 			RedisConnection connection = mock(RedisConnection.class);
 			given(connectionFactory.getConnection()).willReturn(connection);

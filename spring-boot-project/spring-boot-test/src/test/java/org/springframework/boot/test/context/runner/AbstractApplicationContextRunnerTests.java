@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import com.google.gson.Gson;
 import org.junit.jupiter.api.Test;
 
+import org.springframework.beans.factory.BeanCurrentlyInCreationException;
+import org.springframework.beans.factory.BeanDefinitionStoreException;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.annotation.UserConfigurations;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.assertj.ApplicationContextAssertProvider;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -32,6 +38,8 @@ import org.springframework.context.annotation.Condition;
 import org.springframework.context.annotation.ConditionContext;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
 import org.springframework.core.type.AnnotatedTypeMetadata;
 import org.springframework.util.ClassUtils;
@@ -39,6 +47,7 @@ import org.springframework.util.ClassUtils;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIOException;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 
 /**
  * Abstract tests for {@link AbstractApplicationContextRunner} implementations.
@@ -140,24 +149,6 @@ abstract class AbstractApplicationContextRunnerTests<T extends AbstractApplicati
 	}
 
 	@Test
-	void runWithUserBeanShouldBeRegisteredInOrder() {
-		get().withBean(String.class, () -> "one").withBean(String.class, () -> "two")
-				.withBean(String.class, () -> "three").run((context) -> {
-					assertThat(context).hasBean("string");
-					assertThat(context.getBean("string")).isEqualTo("three");
-				});
-	}
-
-	@Test
-	void runWithConfigurationsAndUserBeanShouldRegisterUserBeanLast() {
-		get().withUserConfiguration(FooConfig.class).withBean("foo", String.class, () -> "overridden")
-				.run((context) -> {
-					assertThat(context).hasBean("foo");
-					assertThat(context.getBean("foo")).isEqualTo("overridden");
-				});
-	}
-
-	@Test
 	void runWithMultipleConfigurationsShouldRegisterAllConfigurations() {
 		get().withUserConfiguration(FooConfig.class).withConfiguration(UserConfigurations.of(BarConfig.class))
 				.run((context) -> assertThat(context).hasBean("foo").hasBean("bar"));
@@ -183,9 +174,79 @@ abstract class AbstractApplicationContextRunnerTests<T extends AbstractApplicati
 	}
 
 	@Test
+	void consecutiveRunWithFilteredClassLoaderShouldHaveBeanWithLazyProperties() {
+		get().withClassLoader(new FilteredClassLoader(Gson.class)).withUserConfiguration(LazyConfig.class)
+				.run((context) -> assertThat(context).hasSingleBean(ExampleBeanWithLazyProperties.class));
+
+		get().withClassLoader(new FilteredClassLoader(Gson.class)).withUserConfiguration(LazyConfig.class)
+				.run((context) -> assertThat(context).hasSingleBean(ExampleBeanWithLazyProperties.class));
+	}
+
+	@Test
 	void thrownRuleWorksWithCheckedException() {
 		get().run((context) -> assertThatIOException().isThrownBy(() -> throwCheckedException("Expected message"))
 				.withMessageContaining("Expected message"));
+	}
+
+	@Test
+	void runDisablesBeanOverridingByDefault() {
+		get().withUserConfiguration(FooConfig.class).withBean("foo", Integer.class, () -> 42).run((context) -> {
+			assertThat(context).hasFailed();
+			assertThat(context.getStartupFailure()).isInstanceOf(BeanDefinitionStoreException.class)
+					.hasMessageContaining("Invalid bean definition with name 'foo'")
+					.hasMessageContaining("@Bean definition illegally overridden by existing bean definition");
+		});
+	}
+
+	@Test
+	void runDisablesCircularReferencesByDefault() {
+		get().withUserConfiguration(ExampleConsumerConfiguration.class, ExampleProducerConfiguration.class)
+				.run((context) -> {
+					assertThat(context).hasFailed();
+					assertThat(context).getFailure().hasRootCauseInstanceOf(BeanCurrentlyInCreationException.class);
+				});
+	}
+
+	@Test
+	void circularReferencesCanBeAllowed() {
+		get().withAllowCircularReferences(true)
+				.withUserConfiguration(ExampleConsumerConfiguration.class, ExampleProducerConfiguration.class)
+				.run((context) -> assertThat(context).hasNotFailed());
+	}
+
+	@Test
+	void runWithUserBeanShouldBeRegisteredInOrder() {
+		get().withAllowBeanDefinitionOverriding(true).withBean(String.class, () -> "one")
+				.withBean(String.class, () -> "two").withBean(String.class, () -> "three").run((context) -> {
+					assertThat(context).hasBean("string");
+					assertThat(context.getBean("string")).isEqualTo("three");
+				});
+	}
+
+	@Test
+	void runWithConfigurationsAndUserBeanShouldRegisterUserBeanLast() {
+		get().withAllowBeanDefinitionOverriding(true).withUserConfiguration(FooConfig.class)
+				.withBean("foo", String.class, () -> "overridden").run((context) -> {
+					assertThat(context).hasBean("foo");
+					assertThat(context.getBean("foo")).isEqualTo("overridden");
+				});
+	}
+
+	@Test
+	void changesMadeByInitializersShouldBeVisibleToRegisteredClasses() {
+		get().withInitializer((context) -> context.getEnvironment().setActiveProfiles("test"))
+				.withUserConfiguration(ProfileConfig.class)
+				.run((context) -> assertThat(context).hasSingleBean(ProfileConfig.class));
+	}
+
+	@Test
+	void prepareDoesNotRefreshContext() {
+		get().withUserConfiguration(FooConfig.class).prepare((context) -> {
+			assertThatIllegalStateException().isThrownBy(() -> context.getBean(String.class))
+					.withMessageContaining("not been refreshed");
+			context.getSourceApplicationContext().refresh();
+			assertThat(context.getBean(String.class)).isEqualTo("foo");
+		});
 	}
 
 	protected abstract T get();
@@ -198,7 +259,7 @@ abstract class AbstractApplicationContextRunnerTests<T extends AbstractApplicati
 	static class FailingConfig {
 
 		@Bean
-		public String foo() {
+		String foo() {
 			throw new IllegalStateException("Failed");
 		}
 
@@ -208,7 +269,7 @@ abstract class AbstractApplicationContextRunnerTests<T extends AbstractApplicati
 	static class FooConfig {
 
 		@Bean
-		public String foo() {
+		String foo() {
 			return "foo";
 		}
 
@@ -218,7 +279,7 @@ abstract class AbstractApplicationContextRunnerTests<T extends AbstractApplicati
 	static class BarConfig {
 
 		@Bean
-		public String bar() {
+		String bar() {
 			return "bar";
 		}
 
@@ -230,12 +291,79 @@ abstract class AbstractApplicationContextRunnerTests<T extends AbstractApplicati
 
 	}
 
+	@Configuration(proxyBeanMethods = false)
+	@EnableConfigurationProperties(ExampleProperties.class)
+	static class LazyConfig {
+
+		@Bean
+		ExampleBeanWithLazyProperties exampleBeanWithLazyProperties() {
+			return new ExampleBeanWithLazyProperties();
+		}
+
+	}
+
+	static class ExampleBeanWithLazyProperties {
+
+		@Autowired
+		@Lazy
+		ExampleProperties exampleProperties;
+
+	}
+
+	@ConfigurationProperties
+	public static class ExampleProperties {
+
+	}
+
 	static class FilteredClassLoaderCondition implements Condition {
 
 		@Override
 		public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
 			return context.getClassLoader() instanceof FilteredClassLoader;
 		}
+
+	}
+
+	static class Example {
+
+	}
+
+	@FunctionalInterface
+	interface ExampleConfigurer {
+
+		void configure(Example example);
+
+	}
+
+	@Configuration(proxyBeanMethods = false)
+	static class ExampleProducerConfiguration {
+
+		@Bean
+		Example example(ObjectProvider<ExampleConfigurer> configurers) {
+			Example example = new Example();
+			configurers.orderedStream().forEach((configurer) -> configurer.configure(example));
+			return example;
+		}
+
+	}
+
+	@Configuration(proxyBeanMethods = false)
+	static class ExampleConsumerConfiguration {
+
+		@Autowired
+		Example example;
+
+		@Bean
+		ExampleConfigurer configurer() {
+			return (example) -> {
+			};
+		}
+
+	}
+
+	@Profile("test")
+	@Configuration(proxyBeanMethods = false)
+	static class ProfileConfig {
 
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,12 +22,11 @@ import java.io.IOException;
 import java.util.Properties;
 
 import org.gradle.testkit.runner.TaskOutcome;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.TestTemplate;
 
+import org.springframework.boot.gradle.junit.GradleCompatibility;
 import org.springframework.boot.gradle.tasks.buildinfo.BuildInfo;
-import org.springframework.boot.gradle.testkit.GradleBuild;
-import org.springframework.boot.gradle.testkit.GradleBuildExtension;
+import org.springframework.boot.testsupport.gradle.testkit.GradleBuild;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -37,13 +36,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * @author Andy Wilkinson
  */
-@ExtendWith(GradleBuildExtension.class)
+@GradleCompatibility
 class BuildInfoDslIntegrationTests {
 
-	final GradleBuild gradleBuild = new GradleBuild();
+	GradleBuild gradleBuild;
 
-	@Test
-	void basicJar() throws IOException {
+	@TestTemplate
+	void basicJar() {
 		assertThat(this.gradleBuild.build("bootBuildInfo", "--stacktrace").task(":bootBuildInfo").getOutcome())
 				.isEqualTo(TaskOutcome.SUCCESS);
 		Properties properties = buildInfoProperties();
@@ -53,8 +52,8 @@ class BuildInfoDslIntegrationTests {
 		assertThat(properties).containsEntry("build.version", "1.0");
 	}
 
-	@Test
-	void jarWithCustomName() throws IOException {
+	@TestTemplate
+	void jarWithCustomName() {
 		assertThat(this.gradleBuild.build("bootBuildInfo", "--stacktrace").task(":bootBuildInfo").getOutcome())
 				.isEqualTo(TaskOutcome.SUCCESS);
 		Properties properties = buildInfoProperties();
@@ -64,8 +63,8 @@ class BuildInfoDslIntegrationTests {
 		assertThat(properties).containsEntry("build.version", "1.0");
 	}
 
-	@Test
-	void basicWar() throws IOException {
+	@TestTemplate
+	void basicWar() {
 		assertThat(this.gradleBuild.build("bootBuildInfo", "--stacktrace").task(":bootBuildInfo").getOutcome())
 				.isEqualTo(TaskOutcome.SUCCESS);
 		Properties properties = buildInfoProperties();
@@ -75,8 +74,8 @@ class BuildInfoDslIntegrationTests {
 		assertThat(properties).containsEntry("build.version", "1.0");
 	}
 
-	@Test
-	void warWithCustomName() throws IOException {
+	@TestTemplate
+	void warWithCustomName() {
 		assertThat(this.gradleBuild.build("bootBuildInfo", "--stacktrace").task(":bootBuildInfo").getOutcome())
 				.isEqualTo(TaskOutcome.SUCCESS);
 		Properties properties = buildInfoProperties();
@@ -86,8 +85,8 @@ class BuildInfoDslIntegrationTests {
 		assertThat(properties).containsEntry("build.version", "1.0");
 	}
 
-	@Test
-	void additionalProperties() throws IOException {
+	@TestTemplate
+	void additionalProperties() {
 		assertThat(this.gradleBuild.build("bootBuildInfo", "--stacktrace").task(":bootBuildInfo").getOutcome())
 				.isEqualTo(TaskOutcome.SUCCESS);
 		Properties properties = buildInfoProperties();
@@ -99,8 +98,8 @@ class BuildInfoDslIntegrationTests {
 		assertThat(properties).containsEntry("build.b", "bravo");
 	}
 
-	@Test
-	void classesDependency() throws IOException {
+	@TestTemplate
+	void classesDependency() {
 		assertThat(this.gradleBuild.build("classes", "--stacktrace").task(":bootBuildInfo").getOutcome())
 				.isEqualTo(TaskOutcome.SUCCESS);
 	}

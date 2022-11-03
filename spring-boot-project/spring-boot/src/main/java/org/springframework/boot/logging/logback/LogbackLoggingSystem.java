@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.ConsoleHandler;
 import java.util.logging.Handler;
 import java.util.logging.LogManager;
 
@@ -38,19 +39,28 @@ import ch.qos.logback.core.status.Status;
 import ch.qos.logback.core.util.StatusListenerConfigHelper;
 import org.slf4j.ILoggerFactory;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.slf4j.Marker;
 import org.slf4j.bridge.SLF4JBridgeHandler;
-import org.slf4j.impl.StaticLoggerBinder;
 
+import org.springframework.aot.AotDetector;
+import org.springframework.beans.factory.aot.BeanFactoryInitializationAotContribution;
+import org.springframework.beans.factory.aot.BeanFactoryInitializationAotProcessor;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
+import org.springframework.boot.logging.AbstractLoggingSystem;
 import org.springframework.boot.logging.LogFile;
 import org.springframework.boot.logging.LogLevel;
 import org.springframework.boot.logging.LoggerConfiguration;
 import org.springframework.boot.logging.LoggingInitializationContext;
 import org.springframework.boot.logging.LoggingSystem;
+import org.springframework.boot.logging.LoggingSystemFactory;
 import org.springframework.boot.logging.LoggingSystemProperties;
-import org.springframework.boot.logging.Slf4JLoggingSystem;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
+import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.Environment;
 import org.springframework.util.Assert;
+import org.springframework.util.ClassUtils;
 import org.springframework.util.ResourceUtils;
 import org.springframework.util.StringUtils;
 
@@ -63,7 +73,9 @@ import org.springframework.util.StringUtils;
  * @author Ben Hale
  * @since 1.0.0
  */
-public class LogbackLoggingSystem extends Slf4JLoggingSystem {
+public class LogbackLoggingSystem extends AbstractLoggingSystem implements BeanFactoryInitializationAotProcessor {
+
+	private static final String BRIDGE_HANDLER = "org.slf4j.bridge.SLF4JBridgeHandler";
 
 	private static final String CONFIGURATION_FILE_PROPERTY = "logback.configurationFile";
 
@@ -95,6 +107,11 @@ public class LogbackLoggingSystem extends Slf4JLoggingSystem {
 	}
 
 	@Override
+	public LoggingSystemProperties getSystemProperties(ConfigurableEnvironment environment) {
+		return new LogbackLoggingSystemProperties(environment);
+	}
+
+	@Override
 	protected String[] getStandardConfigLocations() {
 		return new String[] { "logback-test.groovy", "logback-test.xml", "logback.groovy", "logback.xml" };
 	}
@@ -106,7 +123,57 @@ public class LogbackLoggingSystem extends Slf4JLoggingSystem {
 			return;
 		}
 		super.beforeInitialize();
+		configureJdkLoggingBridgeHandler();
 		loggerContext.getTurboFilterList().add(FILTER);
+	}
+
+	private void configureJdkLoggingBridgeHandler() {
+		try {
+			if (isBridgeJulIntoSlf4j()) {
+				removeJdkLoggingBridgeHandler();
+				SLF4JBridgeHandler.install();
+			}
+		}
+		catch (Throwable ex) {
+			// Ignore. No java.util.logging bridge is installed.
+		}
+	}
+
+	private boolean isBridgeJulIntoSlf4j() {
+		return isBridgeHandlerAvailable() && isJulUsingASingleConsoleHandlerAtMost();
+	}
+
+	private boolean isBridgeHandlerAvailable() {
+		return ClassUtils.isPresent(BRIDGE_HANDLER, getClassLoader());
+	}
+
+	private boolean isJulUsingASingleConsoleHandlerAtMost() {
+		java.util.logging.Logger rootLogger = LogManager.getLogManager().getLogger("");
+		Handler[] handlers = rootLogger.getHandlers();
+		return handlers.length == 0 || (handlers.length == 1 && handlers[0] instanceof ConsoleHandler);
+	}
+
+	private void removeJdkLoggingBridgeHandler() {
+		try {
+			removeDefaultRootHandler();
+			SLF4JBridgeHandler.uninstall();
+		}
+		catch (Throwable ex) {
+			// Ignore and continue
+		}
+	}
+
+	private void removeDefaultRootHandler() {
+		try {
+			java.util.logging.Logger rootLogger = LogManager.getLogManager().getLogger("");
+			Handler[] handlers = rootLogger.getHandlers();
+			if (handlers.length == 1 && handlers[0] instanceof ConsoleHandler) {
+				rootLogger.removeHandler(handlers[0]);
+			}
+		}
+		catch (Throwable ex) {
+			// Ignore and continue
+		}
 	}
 
 	@Override
@@ -115,13 +182,30 @@ public class LogbackLoggingSystem extends Slf4JLoggingSystem {
 		if (isAlreadyInitialized(loggerContext)) {
 			return;
 		}
-		super.initialize(initializationContext, configLocation, logFile);
+		if (!initializeFromAotGeneratedArtifactsIfPossible(initializationContext, logFile)) {
+			super.initialize(initializationContext, configLocation, logFile);
+		}
 		loggerContext.getTurboFilterList().remove(FILTER);
 		markAsInitialized(loggerContext);
 		if (StringUtils.hasText(System.getProperty(CONFIGURATION_FILE_PROPERTY))) {
 			getLogger(LogbackLoggingSystem.class.getName()).warn("Ignoring '" + CONFIGURATION_FILE_PROPERTY
-					+ "' system property. " + "Please use 'logging.config' instead.");
+					+ "' system property. Please use 'logging.config' instead.");
 		}
+	}
+
+	private boolean initializeFromAotGeneratedArtifactsIfPossible(LoggingInitializationContext initializationContext,
+			LogFile logFile) {
+		if (!AotDetector.useGeneratedArtifacts()) {
+			return false;
+		}
+		if (initializationContext != null) {
+			applySystemProperties(initializationContext.getEnvironment(), logFile);
+		}
+		LoggerContext loggerContext = getLoggerContext();
+		stopAndReset(loggerContext);
+		SpringBootJoranConfigurator configurator = new SpringBootJoranConfigurator(initializationContext);
+		configurator.setContext(loggerContext);
+		return configurator.configureUsingAotGeneratedArtifacts();
 	}
 
 	@Override
@@ -132,21 +216,21 @@ public class LogbackLoggingSystem extends Slf4JLoggingSystem {
 		if (debug) {
 			StatusListenerConfigHelper.addOnConsoleListenerInstance(context, new OnConsoleStatusListener());
 		}
+		Environment environment = initializationContext.getEnvironment();
+		// Apply system properties directly in case the same JVM runs multiple apps
+		new LogbackLoggingSystemProperties(environment, context::putProperty).apply(logFile);
 		LogbackConfigurator configurator = debug ? new DebugLogbackConfigurator(context)
 				: new LogbackConfigurator(context);
-		Environment environment = initializationContext.getEnvironment();
-		context.putProperty(LoggingSystemProperties.LOG_LEVEL_PATTERN,
-				environment.resolvePlaceholders("${logging.pattern.level:${LOG_LEVEL_PATTERN:%5p}}"));
-		context.putProperty(LoggingSystemProperties.LOG_DATEFORMAT_PATTERN, environment.resolvePlaceholders(
-				"${logging.pattern.dateformat:${LOG_DATEFORMAT_PATTERN:yyyy-MM-dd HH:mm:ss.SSS}}"));
-		new DefaultLogbackConfiguration(initializationContext, logFile).apply(configurator);
+		new DefaultLogbackConfiguration(logFile).apply(configurator);
 		context.setPackagingDataEnabled(true);
 	}
 
 	@Override
 	protected void loadConfiguration(LoggingInitializationContext initializationContext, String location,
 			LogFile logFile) {
-		super.loadConfiguration(initializationContext, location, logFile);
+		if (initializationContext != null) {
+			applySystemProperties(initializationContext.getEnvironment(), logFile);
+		}
 		LoggerContext loggerContext = getLoggerContext();
 		stopAndReset(loggerContext);
 		try {
@@ -209,6 +293,9 @@ public class LogbackLoggingSystem extends Slf4JLoggingSystem {
 		LoggerContext context = getLoggerContext();
 		markAsUninitialized(context);
 		super.cleanUp();
+		if (isBridgeHandlerAvailable()) {
+			removeJdkLoggingBridgeHandler();
+		}
 		context.getStatusManager().clear();
 		context.getTurboFilterList().remove(FILTER);
 	}
@@ -232,7 +319,16 @@ public class LogbackLoggingSystem extends Slf4JLoggingSystem {
 
 	@Override
 	public LoggerConfiguration getLoggerConfiguration(String loggerName) {
-		return getLoggerConfiguration(getLogger(loggerName));
+		String name = getLoggerName(loggerName);
+		LoggerContext loggerContext = getLoggerContext();
+		return getLoggerConfiguration(loggerContext.exists(name));
+	}
+
+	private String getLoggerName(String name) {
+		if (!StringUtils.hasLength(name) || Logger.ROOT_LOGGER_NAME.equals(name)) {
+			return ROOT_LOGGER_NAME;
+		}
+		return name;
 	}
 
 	private LoggerConfiguration getLoggerConfiguration(ch.qos.logback.classic.Logger logger) {
@@ -241,10 +337,7 @@ public class LogbackLoggingSystem extends Slf4JLoggingSystem {
 		}
 		LogLevel level = LEVELS.convertNativeToSystem(logger.getLevel());
 		LogLevel effectiveLevel = LEVELS.convertNativeToSystem(logger.getEffectiveLevel());
-		String name = logger.getName();
-		if (!StringUtils.hasLength(name) || Logger.ROOT_LOGGER_NAME.equals(name)) {
-			name = ROOT_LOGGER_NAME;
-		}
+		String name = getLoggerName(logger.getName());
 		return new LoggerConfiguration(name, level, effectiveLevel);
 	}
 
@@ -263,22 +356,18 @@ public class LogbackLoggingSystem extends Slf4JLoggingSystem {
 
 	@Override
 	public Runnable getShutdownHandler() {
-		return new ShutdownHandler();
+		return () -> getLoggerContext().stop();
 	}
 
 	private ch.qos.logback.classic.Logger getLogger(String name) {
 		LoggerContext factory = getLoggerContext();
-		if (StringUtils.isEmpty(name) || ROOT_LOGGER_NAME.equals(name)) {
-			name = Logger.ROOT_LOGGER_NAME;
-		}
-		return factory.getLogger(name);
-
+		return factory.getLogger(getLoggerName(name));
 	}
 
 	private LoggerContext getLoggerContext() {
-		ILoggerFactory factory = StaticLoggerBinder.getSingleton().getLoggerFactory();
+		ILoggerFactory factory = LoggerFactory.getILoggerFactory();
 		Assert.isInstanceOf(LoggerContext.class, factory,
-				String.format(
+				() -> String.format(
 						"LoggerFactory is not a Logback LoggerContext but Logback is on "
 								+ "the classpath. Either remove Logback or the competing "
 								+ "implementation (%s loaded from %s). If you are using "
@@ -314,11 +403,31 @@ public class LogbackLoggingSystem extends Slf4JLoggingSystem {
 		loggerContext.removeObject(LoggingSystem.class.getName());
 	}
 
-	private final class ShutdownHandler implements Runnable {
+	@Override
+	public BeanFactoryInitializationAotContribution processAheadOfTime(ConfigurableListableBeanFactory beanFactory) {
+		String key = BeanFactoryInitializationAotContribution.class.getName();
+		LoggerContext context = getLoggerContext();
+		BeanFactoryInitializationAotContribution contribution = (BeanFactoryInitializationAotContribution) context
+				.getObject(key);
+		context.removeObject(key);
+		return contribution;
+	}
+
+	/**
+	 * {@link LoggingSystemFactory} that returns {@link LogbackLoggingSystem} if possible.
+	 */
+	@Order(Ordered.LOWEST_PRECEDENCE)
+	public static class Factory implements LoggingSystemFactory {
+
+		private static final boolean PRESENT = ClassUtils.isPresent("ch.qos.logback.classic.LoggerContext",
+				Factory.class.getClassLoader());
 
 		@Override
-		public void run() {
-			getLoggerContext().stop();
+		public LoggingSystem getLoggingSystem(ClassLoader classLoader) {
+			if (PRESENT) {
+				return new LogbackLoggingSystem(classLoader);
+			}
+			return null;
 		}
 
 	}

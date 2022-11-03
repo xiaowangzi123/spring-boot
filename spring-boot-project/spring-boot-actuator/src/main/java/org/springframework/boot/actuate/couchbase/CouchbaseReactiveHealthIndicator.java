@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2018 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.springframework.boot.actuate.couchbase;
 
-import com.couchbase.client.core.message.internal.DiagnosticsReport;
 import com.couchbase.client.java.Cluster;
 import reactor.core.publisher.Mono;
 
@@ -39,14 +39,16 @@ public class CouchbaseReactiveHealthIndicator extends AbstractReactiveHealthIndi
 	 * @param cluster the Couchbase cluster
 	 */
 	public CouchbaseReactiveHealthIndicator(Cluster cluster) {
+		super("Couchbase health check failed");
 		this.cluster = cluster;
 	}
 
 	@Override
 	protected Mono<Health> doHealthCheck(Health.Builder builder) {
-		DiagnosticsReport diagnostics = this.cluster.diagnostics();
-		new CouchbaseHealth(diagnostics).applyTo(builder);
-		return Mono.just(builder.build());
+		return this.cluster.reactive().diagnostics().map((diagnostics) -> {
+			new CouchbaseHealth(diagnostics).applyTo(builder);
+			return builder.build();
+		});
 	}
 
 }

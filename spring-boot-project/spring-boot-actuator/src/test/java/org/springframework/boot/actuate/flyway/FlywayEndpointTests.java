@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,18 +53,17 @@ class FlywayEndpointTests {
 	}
 
 	@Test
-	@SuppressWarnings("deprecation")
 	void whenFlywayHasBeenBaselinedFlywayReportIsProduced() {
-		this.contextRunner.withBean(FlywayMigrationStrategy.class, () -> (flyway) -> {
-			flyway.setBaselineVersionAsString("2");
-			flyway.baseline();
-			flyway.migrate();
-		}).run((context) -> {
-			Map<String, FlywayDescriptor> flywayBeans = context.getBean(FlywayEndpoint.class).flywayBeans()
-					.getContexts().get(context.getId()).getFlywayBeans();
-			assertThat(flywayBeans).hasSize(1);
-			assertThat(flywayBeans.values().iterator().next().getMigrations()).hasSize(3);
-		});
+		this.contextRunner.withPropertyValues("spring.flyway.baseline-version=2")
+				.withBean(FlywayMigrationStrategy.class, () -> (flyway) -> {
+					flyway.baseline();
+					flyway.migrate();
+				}).run((context) -> {
+					Map<String, FlywayDescriptor> flywayBeans = context.getBean(FlywayEndpoint.class).flywayBeans()
+							.getContexts().get(context.getId()).getFlywayBeans();
+					assertThat(flywayBeans).hasSize(1);
+					assertThat(flywayBeans.values().iterator().next().getMigrations()).hasSize(4);
+				});
 	}
 
 }

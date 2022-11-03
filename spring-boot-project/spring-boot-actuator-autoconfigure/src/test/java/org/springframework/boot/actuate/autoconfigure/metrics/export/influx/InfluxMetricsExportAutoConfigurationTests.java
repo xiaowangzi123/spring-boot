@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,9 +51,17 @@ class InfluxMetricsExportAutoConfigurationTests {
 	}
 
 	@Test
-	void autoConfigurationCanBeDisabled() {
+	void autoConfigurationCanBeDisabledWithDefaultsEnabledProperty() {
 		this.contextRunner.withUserConfiguration(BaseConfiguration.class)
-				.withPropertyValues("management.metrics.export.influx.enabled=false")
+				.withPropertyValues("management.defaults.metrics.export.enabled=false")
+				.run((context) -> assertThat(context).doesNotHaveBean(InfluxMeterRegistry.class)
+						.doesNotHaveBean(InfluxConfig.class));
+	}
+
+	@Test
+	void autoConfigurationCanBeDisabledWithSpecificEnabledProperty() {
+		this.contextRunner.withUserConfiguration(BaseConfiguration.class)
+				.withPropertyValues("management.influx.metrics.export.enabled=false")
 				.run((context) -> assertThat(context).doesNotHaveBean(InfluxMeterRegistry.class)
 						.doesNotHaveBean(InfluxConfig.class));
 	}
@@ -84,7 +92,7 @@ class InfluxMetricsExportAutoConfigurationTests {
 	static class BaseConfiguration {
 
 		@Bean
-		public Clock clock() {
+		Clock clock() {
 			return Clock.SYSTEM;
 		}
 
@@ -95,7 +103,7 @@ class InfluxMetricsExportAutoConfigurationTests {
 	static class CustomConfigConfiguration {
 
 		@Bean
-		public InfluxConfig customConfig() {
+		InfluxConfig customConfig() {
 			return (key) -> null;
 		}
 
@@ -106,7 +114,7 @@ class InfluxMetricsExportAutoConfigurationTests {
 	static class CustomRegistryConfiguration {
 
 		@Bean
-		public InfluxMeterRegistry customRegistry(InfluxConfig config, Clock clock) {
+		InfluxMeterRegistry customRegistry(InfluxConfig config, Clock clock) {
 			return new InfluxMeterRegistry(config, clock);
 		}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,9 +31,9 @@ import java.util.function.Consumer;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import org.springframework.boot.actuate.autoconfigure.cloudfoundry.CloudFoundryAuthorizationException;
 import org.springframework.boot.actuate.autoconfigure.cloudfoundry.CloudFoundryAuthorizationException.Reason;
@@ -45,13 +45,15 @@ import org.springframework.util.StreamUtils;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.verify;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 
 /**
  * Tests for {@link TokenValidator}.
  *
  * @author Madhura Bhave
  */
+@ExtendWith(MockitoExtension.class)
 class TokenValidatorTests {
 
 	private static final byte[] DOT = ".".getBytes();
@@ -85,12 +87,11 @@ class TokenValidatorTests {
 
 	@BeforeEach
 	void setup() {
-		MockitoAnnotations.initMocks(this);
 		this.tokenValidator = new TokenValidator(this.securityService);
 	}
 
 	@Test
-	void validateTokenWhenKidValidationFailsTwiceShouldThrowException() throws Exception {
+	void validateTokenWhenKidValidationFailsTwiceShouldThrowException() {
 		ReflectionTestUtils.setField(this.tokenValidator, "tokenKeys", INVALID_KEYS);
 		given(this.securityService.fetchTokenKeys()).willReturn(INVALID_KEYS);
 		String header = "{\"alg\": \"RS256\",  \"kid\": \"valid-key\",\"typ\": \"JWT\"}";
@@ -108,7 +109,7 @@ class TokenValidatorTests {
 		String header = "{ \"alg\": \"RS256\",  \"kid\": \"valid-key\",\"typ\": \"JWT\"}";
 		String claims = "{ \"exp\": 2147483647, \"iss\": \"http://localhost:8080/uaa/oauth/token\", \"scope\": [\"actuator.read\"]}";
 		this.tokenValidator.validate(new Token(getSignedToken(header.getBytes(), claims.getBytes())));
-		verify(this.securityService).fetchTokenKeys();
+		then(this.securityService).should().fetchTokenKeys();
 	}
 
 	@Test
@@ -118,7 +119,7 @@ class TokenValidatorTests {
 		String header = "{ \"alg\": \"RS256\",  \"kid\": \"valid-key\",\"typ\": \"JWT\"}";
 		String claims = "{ \"exp\": 2147483647, \"iss\": \"http://localhost:8080/uaa/oauth/token\", \"scope\": [\"actuator.read\"]}";
 		this.tokenValidator.validate(new Token(getSignedToken(header.getBytes(), claims.getBytes())));
-		verify(this.securityService).fetchTokenKeys();
+		then(this.securityService).should().fetchTokenKeys();
 	}
 
 	@Test
@@ -128,14 +129,13 @@ class TokenValidatorTests {
 		String header = "{ \"alg\": \"RS256\",  \"kid\": \"valid-key\",\"typ\": \"JWT\"}";
 		String claims = "{ \"exp\": 2147483647, \"iss\": \"http://localhost:8080/uaa/oauth/token\", \"scope\": [\"actuator.read\"]}";
 		this.tokenValidator.validate(new Token(getSignedToken(header.getBytes(), claims.getBytes())));
-		verify(this.securityService, Mockito.never()).fetchTokenKeys();
+		then(this.securityService).should(never()).fetchTokenKeys();
 	}
 
 	@Test
-	void validateTokenWhenSignatureInvalidShouldThrowException() throws Exception {
+	void validateTokenWhenSignatureInvalidShouldThrowException() {
 		ReflectionTestUtils.setField(this.tokenValidator, "tokenKeys",
 				Collections.singletonMap("valid-key", INVALID_KEY));
-		given(this.securityService.getUaaUrl()).willReturn("http://localhost:8080/uaa");
 		String header = "{ \"alg\": \"RS256\",  \"kid\": \"valid-key\",\"typ\": \"JWT\"}";
 		String claims = "{ \"exp\": 2147483647, \"iss\": \"http://localhost:8080/uaa/oauth/token\", \"scope\": [\"actuator.read\"]}";
 		assertThatExceptionOfType(CloudFoundryAuthorizationException.class).isThrownBy(
@@ -144,8 +144,7 @@ class TokenValidatorTests {
 	}
 
 	@Test
-	void validateTokenWhenTokenAlgorithmIsNotRS256ShouldThrowException() throws Exception {
-		given(this.securityService.fetchTokenKeys()).willReturn(VALID_KEYS);
+	void validateTokenWhenTokenAlgorithmIsNotRS256ShouldThrowException() {
 		String header = "{ \"alg\": \"HS256\",  \"typ\": \"JWT\"}";
 		String claims = "{ \"exp\": 2147483647, \"iss\": \"http://localhost:8080/uaa/oauth/token\", \"scope\": [\"actuator.read\"]}";
 		assertThatExceptionOfType(CloudFoundryAuthorizationException.class).isThrownBy(
@@ -154,7 +153,7 @@ class TokenValidatorTests {
 	}
 
 	@Test
-	void validateTokenWhenExpiredShouldThrowException() throws Exception {
+	void validateTokenWhenExpiredShouldThrowException() {
 		given(this.securityService.fetchTokenKeys()).willReturn(VALID_KEYS);
 		given(this.securityService.fetchTokenKeys()).willReturn(VALID_KEYS);
 		String header = "{ \"alg\": \"RS256\",  \"kid\": \"valid-key\", \"typ\": \"JWT\"}";
@@ -165,7 +164,7 @@ class TokenValidatorTests {
 	}
 
 	@Test
-	void validateTokenWhenIssuerIsNotValidShouldThrowException() throws Exception {
+	void validateTokenWhenIssuerIsNotValidShouldThrowException() {
 		given(this.securityService.fetchTokenKeys()).willReturn(VALID_KEYS);
 		given(this.securityService.getUaaUrl()).willReturn("https://other-uaa.com");
 		String header = "{ \"alg\": \"RS256\",  \"kid\": \"valid-key\", \"typ\": \"JWT\", \"scope\": [\"actuator.read\"]}";
@@ -176,7 +175,7 @@ class TokenValidatorTests {
 	}
 
 	@Test
-	void validateTokenWhenAudienceIsNotValidShouldThrowException() throws Exception {
+	void validateTokenWhenAudienceIsNotValidShouldThrowException() {
 		given(this.securityService.fetchTokenKeys()).willReturn(VALID_KEYS);
 		given(this.securityService.getUaaUrl()).willReturn("http://localhost:8080/uaa");
 		String header = "{ \"alg\": \"RS256\",  \"kid\": \"valid-key\", \"typ\": \"JWT\"}";

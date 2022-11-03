@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,10 @@ import java.util.function.Function;
 
 import org.junit.jupiter.api.Test;
 
+import org.springframework.aot.hint.MemberCategory;
+import org.springframework.aot.hint.RuntimeHints;
+import org.springframework.aot.hint.predicate.RuntimeHintsPredicates;
+import org.springframework.boot.actuate.autoconfigure.cloudfoundry.CloudFoundryWebEndpointDiscoverer.CloudFoundryWebEndpointDiscovererRuntimeHints;
 import org.springframework.boot.actuate.endpoint.EndpointId;
 import org.springframework.boot.actuate.endpoint.InvocationContext;
 import org.springframework.boot.actuate.endpoint.SecurityContext;
@@ -35,8 +39,9 @@ import org.springframework.boot.actuate.endpoint.web.ExposableWebEndpoint;
 import org.springframework.boot.actuate.endpoint.web.PathMapper;
 import org.springframework.boot.actuate.endpoint.web.WebOperation;
 import org.springframework.boot.actuate.endpoint.web.annotation.EndpointWebExtension;
+import org.springframework.boot.actuate.health.HealthContributorRegistry;
 import org.springframework.boot.actuate.health.HealthEndpoint;
-import org.springframework.boot.actuate.health.HealthIndicator;
+import org.springframework.boot.actuate.health.HealthEndpointGroups;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -49,6 +54,7 @@ import static org.mockito.Mockito.mock;
  * Tests for {@link CloudFoundryWebEndpointDiscoverer}.
  *
  * @author Madhura Bhave
+ * @author Moritz Halbritter
  */
 class CloudFoundryWebEndpointDiscovererTests {
 
@@ -68,6 +74,14 @@ class CloudFoundryWebEndpointDiscovererTests {
 		});
 	}
 
+	@Test
+	void shouldRegisterHints() {
+		RuntimeHints runtimeHints = new RuntimeHints();
+		new CloudFoundryWebEndpointDiscovererRuntimeHints().registerHints(runtimeHints, getClass().getClassLoader());
+		assertThat(RuntimeHintsPredicates.reflection().onType(CloudFoundryEndpointFilter.class)
+				.withMemberCategories(MemberCategory.INVOKE_DECLARED_CONSTRUCTORS)).accepts(runtimeHints);
+	}
+
 	private WebOperation findMainReadOperation(ExposableWebEndpoint endpoint) {
 		for (WebOperation operation : endpoint.getOperations()) {
 			if (operation.getRequestPredicate().getPath().equals("health")) {
@@ -78,7 +92,7 @@ class CloudFoundryWebEndpointDiscovererTests {
 	}
 
 	private void load(Class<?> configuration, Consumer<CloudFoundryWebEndpointDiscoverer> consumer) {
-		this.load((id) -> null, EndpointId::toString, configuration, consumer);
+		load((id) -> null, EndpointId::toString, configuration, consumer);
 	}
 
 	private void load(Function<EndpointId, Long> timeToLive, PathMapper endpointPathMapper, Class<?> configuration,
@@ -99,27 +113,29 @@ class CloudFoundryWebEndpointDiscovererTests {
 	static class TestConfiguration {
 
 		@Bean
-		public TestEndpoint testEndpoint() {
+		TestEndpoint testEndpoint() {
 			return new TestEndpoint();
 		}
 
 		@Bean
-		public TestEndpointWebExtension testEndpointWebExtension() {
+		TestEndpointWebExtension testEndpointWebExtension() {
 			return new TestEndpointWebExtension();
 		}
 
 		@Bean
-		public HealthEndpoint healthEndpoint() {
-			return new HealthEndpoint(mock(HealthIndicator.class));
+		HealthEndpoint healthEndpoint() {
+			HealthContributorRegistry registry = mock(HealthContributorRegistry.class);
+			HealthEndpointGroups groups = mock(HealthEndpointGroups.class);
+			return new HealthEndpoint(registry, groups, null);
 		}
 
 		@Bean
-		public HealthEndpointWebExtension healthEndpointWebExtension() {
+		HealthEndpointWebExtension healthEndpointWebExtension() {
 			return new HealthEndpointWebExtension();
 		}
 
 		@Bean
-		public TestHealthEndpointCloudFoundryExtension testHealthEndpointCloudFoundryExtension() {
+		TestHealthEndpointCloudFoundryExtension testHealthEndpointCloudFoundryExtension() {
 			return new TestHealthEndpointCloudFoundryExtension();
 		}
 
@@ -129,7 +145,7 @@ class CloudFoundryWebEndpointDiscovererTests {
 	static class TestEndpoint {
 
 		@ReadOperation
-		public Object getAll() {
+		Object getAll() {
 			return null;
 		}
 
@@ -139,7 +155,7 @@ class CloudFoundryWebEndpointDiscovererTests {
 	static class TestEndpointWebExtension {
 
 		@ReadOperation
-		public Object getAll() {
+		Object getAll() {
 			return null;
 		}
 
@@ -149,7 +165,7 @@ class CloudFoundryWebEndpointDiscovererTests {
 	static class HealthEndpointWebExtension {
 
 		@ReadOperation
-		public Object getAll() {
+		Object getAll() {
 			return null;
 		}
 
@@ -159,7 +175,7 @@ class CloudFoundryWebEndpointDiscovererTests {
 	static class TestHealthEndpointCloudFoundryExtension {
 
 		@ReadOperation
-		public Object getAll() {
+		Object getAll() {
 			return "cf";
 		}
 

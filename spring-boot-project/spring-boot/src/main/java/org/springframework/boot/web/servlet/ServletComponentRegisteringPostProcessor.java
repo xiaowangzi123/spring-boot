@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.annotation.AnnotatedBeanDefinition;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
@@ -29,7 +30,6 @@ import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
-import org.springframework.context.annotation.ScannedGenericBeanDefinition;
 import org.springframework.web.context.WebApplicationContext;
 
 /**
@@ -72,18 +72,17 @@ class ServletComponentRegisteringPostProcessor implements BeanFactoryPostProcess
 
 	private void scanPackage(ClassPathScanningCandidateComponentProvider componentProvider, String packageToScan) {
 		for (BeanDefinition candidate : componentProvider.findCandidateComponents(packageToScan)) {
-			if (candidate instanceof ScannedGenericBeanDefinition) {
+			if (candidate instanceof AnnotatedBeanDefinition annotatedBeanDefinition) {
 				for (ServletComponentHandler handler : HANDLERS) {
-					handler.handle(((ScannedGenericBeanDefinition) candidate),
-							(BeanDefinitionRegistry) this.applicationContext);
+					handler.handle(annotatedBeanDefinition, (BeanDefinitionRegistry) this.applicationContext);
 				}
 			}
 		}
 	}
 
 	private boolean isRunningInEmbeddedWebServer() {
-		return this.applicationContext instanceof WebApplicationContext
-				&& ((WebApplicationContext) this.applicationContext).getServletContext() == null;
+		return this.applicationContext instanceof WebApplicationContext webApplicationContext
+				&& webApplicationContext.getServletContext() == null;
 	}
 
 	private ClassPathScanningCandidateComponentProvider createComponentProvider() {

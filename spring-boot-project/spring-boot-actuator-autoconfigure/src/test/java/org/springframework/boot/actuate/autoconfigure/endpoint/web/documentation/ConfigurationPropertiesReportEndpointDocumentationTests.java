@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,12 @@
 
 package org.springframework.boot.actuate.autoconfigure.endpoint.web.documentation;
 
+import java.util.Collections;
+
 import org.junit.jupiter.api.Test;
 
 import org.springframework.boot.actuate.context.properties.ConfigurationPropertiesReportEndpoint;
+import org.springframework.boot.actuate.endpoint.Show;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -36,13 +39,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * {@link ConfigurationPropertiesReportEndpoint}.
  *
  * @author Andy Wilkinson
+ * @author Chris Bono
  */
 class ConfigurationPropertiesReportEndpointDocumentationTests extends MockMvcEndpointDocumentationTests {
 
 	@Test
 	void configProps() throws Exception {
 		this.mockMvc.perform(get("/actuator/configprops")).andExpect(status().isOk())
-				.andDo(MockMvcRestDocumentation.document("configprops",
+				.andDo(MockMvcRestDocumentation.document("configprops/all",
 						preprocessResponse(limit("contexts", getApplicationContext().getId(), "beans")),
 						responseFields(fieldWithPath("contexts").description("Application contexts keyed by id."),
 								fieldWithPath("contexts.*.beans.*")
@@ -51,6 +55,25 @@ class ConfigurationPropertiesReportEndpointDocumentationTests extends MockMvcEnd
 										.description("Prefix applied to the names of the bean's properties."),
 								subsectionWithPath("contexts.*.beans.*.properties")
 										.description("Properties of the bean as name-value pairs."),
+								subsectionWithPath("contexts.*.beans.*.inputs").description(
+										"Origin and value of the configuration property used when binding to this bean."),
+								parentIdField())));
+	}
+
+	@Test
+	void configPropsFilterByPrefix() throws Exception {
+		this.mockMvc.perform(get("/actuator/configprops/spring.jackson")).andExpect(status().isOk())
+				.andDo(MockMvcRestDocumentation.document("configprops/prefixed",
+						preprocessResponse(limit("contexts", getApplicationContext().getId(), "beans")),
+						responseFields(fieldWithPath("contexts").description("Application contexts keyed by id."),
+								fieldWithPath("contexts.*.beans.*")
+										.description("`@ConfigurationProperties` beans keyed by bean name."),
+								fieldWithPath("contexts.*.beans.*.prefix")
+										.description("Prefix applied to the names of the bean's properties."),
+								subsectionWithPath("contexts.*.beans.*.properties")
+										.description("Properties of the bean as name-value pairs."),
+								subsectionWithPath("contexts.*.beans.*.inputs").description(
+										"Origin and value of the configuration property used when binding to this bean."),
 								parentIdField())));
 	}
 
@@ -59,8 +82,8 @@ class ConfigurationPropertiesReportEndpointDocumentationTests extends MockMvcEnd
 	static class TestConfiguration {
 
 		@Bean
-		public ConfigurationPropertiesReportEndpoint endpoint() {
-			return new ConfigurationPropertiesReportEndpoint();
+		ConfigurationPropertiesReportEndpoint endpoint() {
+			return new ConfigurationPropertiesReportEndpoint(Collections.emptyList(), Show.ALWAYS);
 		}
 
 	}

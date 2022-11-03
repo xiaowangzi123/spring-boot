@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,6 +61,7 @@ class MapBinder extends AggregateBinder<Map<Object, Object>> {
 			if (!ConfigurationPropertyName.EMPTY.equals(name)) {
 				ConfigurationProperty property = source.getConfigurationProperty(name);
 				if (property != null && !hasDescendants) {
+					getContext().setConfigurationProperty(property);
 					return getContext().getConverter().convert(property.getValue(), target);
 				}
 				source = source.filter(name::isAncestorOf);
@@ -148,9 +149,9 @@ class MapBinder extends AggregateBinder<Map<Object, Object>> {
 			this.valueType = this.mapType.getGeneric(1);
 		}
 
-		public void bindEntries(ConfigurationPropertySource source, Map<Object, Object> map) {
-			if (source instanceof IterableConfigurationPropertySource) {
-				for (ConfigurationPropertyName name : (IterableConfigurationPropertySource) source) {
+		void bindEntries(ConfigurationPropertySource source, Map<Object, Object> map) {
+			if (source instanceof IterableConfigurationPropertySource iterableSource) {
+				for (ConfigurationPropertyName name : iterableSource) {
 					Bindable<?> valueBindable = getValueBindable(name);
 					ConfigurationPropertyName entryName = getEntryName(source, name);
 					Object key = getContext().getConverter().convert(getKeyName(entryName), this.keyType);

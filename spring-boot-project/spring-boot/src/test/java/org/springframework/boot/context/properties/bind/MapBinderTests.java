@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package org.springframework.boot.context.properties.bind;
 
+import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -26,9 +27,10 @@ import java.util.Properties;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
-import org.mockito.Answers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 import org.springframework.boot.context.properties.bind.BinderTests.ExampleEnum;
 import org.springframework.boot.context.properties.bind.BinderTests.JavaBean;
@@ -49,6 +51,7 @@ import static org.assertj.core.api.Assertions.entry;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isA;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 
@@ -328,7 +331,7 @@ class MapBinderTests {
 	@Test
 	void bindToMapShouldTriggerOnSuccess() {
 		this.sources.add(new MockConfigurationPropertySource("foo.bar", "1", "line1"));
-		BindHandler handler = mock(BindHandler.class, Answers.CALLS_REAL_METHODS);
+		BindHandler handler = mockBindHandler();
 		Bindable<Map<String, Integer>> target = STRING_INTEGER_MAP;
 		this.binder.bind("foo", target, handler);
 		InOrder ordered = inOrder(handler);
@@ -340,7 +343,7 @@ class MapBinderTests {
 	@Test
 	void bindToMapStringArrayShouldTriggerOnSuccess() {
 		this.sources.add(new MockConfigurationPropertySource("foo.bar", "a,b,c", "line1"));
-		BindHandler handler = mock(BindHandler.class, Answers.CALLS_REAL_METHODS);
+		BindHandler handler = mockBindHandler();
 		Bindable<Map<String, String[]>> target = STRING_ARRAY_MAP;
 		this.binder.bind("foo", target, handler);
 		InOrder ordered = inOrder(handler);
@@ -361,7 +364,7 @@ class MapBinderTests {
 		source.put("foo.bar[2].value", "c");
 		this.sources.add(source);
 		Map<String, List<JavaBean>> map = this.binder.bind("foo", target).get();
-		List<String> values = map.get("bar").stream().map(JavaBean::getValue).collect(Collectors.toList());
+		List<String> values = map.get("bar").stream().map(JavaBean::getValue).toList();
 		assertThat(values).containsExactly("a", "b", "c");
 
 	}
@@ -426,7 +429,7 @@ class MapBinderTests {
 		mockSource.put("foo.bar.baz[2].value", "c");
 		this.sources.add(mockSource);
 		Map<String, List<JavaBean>> map = this.binder.bind("foo", target).get();
-		List<String> values = map.get("bar.baz").stream().map(JavaBean::getValue).collect(Collectors.toList());
+		List<String> values = map.get("bar.baz").stream().map(JavaBean::getValue).toList();
 		assertThat(values).containsExactly("a", "b", "c");
 	}
 
@@ -592,6 +595,18 @@ class MapBinderTests {
 		assertThat(result.getValues()).containsExactly(entry("a", "b"));
 	}
 
+	@Test
+	void bindToMapWithWildcardShouldConvertToTheRightType() {
+		// gh-18767
+		MockConfigurationPropertySource source = new MockConfigurationPropertySource();
+		source.put("foo.addresses.localhost[0]", "127.0.0.1");
+		source.put("foo.addresses.localhost[1]", "127.0.0.2");
+		this.sources.add(source);
+		MapWithWildcardProperties result = this.binder.bind("foo", Bindable.of(MapWithWildcardProperties.class)).get();
+		assertThat(result.getAddresses().get("localhost").stream().map(InetAddress::getHostAddress))
+				.containsExactly("127.0.0.1", "127.0.0.2");
+	}
+
 	private <K, V> Bindable<Map<K, V>> getMapBindable(Class<K> keyGeneric, ResolvableType valueType) {
 		ResolvableType keyType = ResolvableType.forClass(keyGeneric);
 		return Bindable.of(ResolvableType.forClassWithGenerics(Map.class, keyType, valueType));
@@ -601,7 +616,15 @@ class MapBinderTests {
 		return Bindable.of(ResolvableType.forClassWithGenerics(List.class, type));
 	}
 
-	public static class Foo {
+	private BindHandler mockBindHandler() {
+		BindHandler handler = mock(BindHandler.class);
+		given(handler.onStart(any(), any(), any())).willAnswer(InvocationArgument.index(1));
+		given(handler.onCreate(any(), any(), any(), any())).willAnswer(InvocationArgument.index(3));
+		given(handler.onSuccess(any(), any(), any(), any())).willAnswer(InvocationArgument.index(3));
+		return handler;
+	}
+
+	static class Foo {
 
 		private String pattern;
 
@@ -612,11 +635,11 @@ class MapBinderTests {
 			this.pattern = pattern;
 		}
 
-		public String getPattern() {
+		String getPattern() {
 			return this.pattern;
 		}
 
-		public void setPattern(String pattern) {
+		void setPattern(String pattern) {
 			this.pattern = pattern;
 		}
 
@@ -628,15 +651,15 @@ class MapBinderTests {
 
 		private String value;
 
-		public Map<String, NestableFoo> getFoos() {
+		Map<String, NestableFoo> getFoos() {
 			return this.foos;
 		}
 
-		public String getValue() {
+		String getValue() {
 			return this.value;
 		}
 
-		public void setValue(String value) {
+		void setValue(String value) {
 			this.value = value;
 		}
 
@@ -651,22 +674,22 @@ class MapBinderTests {
 
 	}
 
-	public static class ExampleCustomNoDefaultConstructorBean {
+	static class ExampleCustomNoDefaultConstructorBean {
 
 		private MyCustomNoDefaultConstructorMap items = new MyCustomNoDefaultConstructorMap(
 				Collections.singletonMap("foo", "bar"));
 
-		public MyCustomNoDefaultConstructorMap getItems() {
+		MyCustomNoDefaultConstructorMap getItems() {
 			return this.items;
 		}
 
-		public void setItems(MyCustomNoDefaultConstructorMap items) {
+		void setItems(MyCustomNoDefaultConstructorMap items) {
 			this.items = items;
 		}
 
 	}
 
-	public static class MyCustomNoDefaultConstructorMap extends HashMap<String, String> {
+	static class MyCustomNoDefaultConstructorMap extends HashMap<String, String> {
 
 		MyCustomNoDefaultConstructorMap(Map<String, String> items) {
 			putAll(items);
@@ -674,35 +697,68 @@ class MapBinderTests {
 
 	}
 
-	public static class ExampleCustomWithDefaultConstructorBean {
+	static class ExampleCustomWithDefaultConstructorBean {
 
 		private MyCustomWithDefaultConstructorMap items = new MyCustomWithDefaultConstructorMap();
 
-		public MyCustomWithDefaultConstructorMap getItems() {
+		MyCustomWithDefaultConstructorMap getItems() {
 			return this.items;
 		}
 
-		public void setItems(MyCustomWithDefaultConstructorMap items) {
+		void setItems(MyCustomWithDefaultConstructorMap items) {
 			this.items.clear();
 			this.items.putAll(items);
 		}
 
 	}
 
-	public static class MyCustomWithDefaultConstructorMap extends HashMap<String, String> {
+	static class MyCustomWithDefaultConstructorMap extends HashMap<String, String> {
 
 	}
 
-	public static class BeanWithGetterException {
+	static class BeanWithGetterException {
 
 		private Map<String, String> values;
 
-		public void setValues(Map<String, String> values) {
+		void setValues(Map<String, String> values) {
 			this.values = values;
 		}
 
-		public Map<String, String> getValues() {
+		Map<String, String> getValues() {
 			return Collections.unmodifiableMap(this.values);
+		}
+
+	}
+
+	static class MapWithWildcardProperties {
+
+		private Map<String, ? extends List<? extends InetAddress>> addresses;
+
+		Map<String, ? extends List<? extends InetAddress>> getAddresses() {
+			return this.addresses;
+		}
+
+		void setAddresses(Map<String, ? extends List<? extends InetAddress>> addresses) {
+			this.addresses = addresses;
+		}
+
+	}
+
+	private static final class InvocationArgument<T> implements Answer<T> {
+
+		private final int index;
+
+		private InvocationArgument(int index) {
+			this.index = index;
+		}
+
+		@Override
+		public T answer(InvocationOnMock invocation) throws Throwable {
+			return invocation.getArgument(this.index);
+		}
+
+		private static <T> InvocationArgument<T> index(int index) {
+			return new InvocationArgument<>(index);
 		}
 
 	}

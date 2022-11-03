@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,8 +26,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.impl.StaticLoggerBinder;
 
+import org.springframework.beans.factory.aot.BeanFactoryInitializationAotContribution;
 import org.springframework.boot.context.properties.source.ConfigurationPropertySources;
 import org.springframework.boot.logging.LoggingInitializationContext;
 import org.springframework.boot.testsupport.system.CapturedOutput;
@@ -57,16 +57,15 @@ class SpringBootJoranConfiguratorTests {
 
 	private Logger logger;
 
-	private CapturedOutput capturedOutput;
+	private CapturedOutput output;
 
 	@BeforeEach
-	void setup(CapturedOutput capturedOutput) {
-		this.capturedOutput = capturedOutput;
+	void setup(CapturedOutput output) {
+		this.output = output;
 		this.environment = new MockEnvironment();
 		this.initializationContext = new LoggingInitializationContext(this.environment);
 		this.configurator = new SpringBootJoranConfigurator(this.initializationContext);
-		StaticLoggerBinder binder = StaticLoggerBinder.getSingleton();
-		this.context = (LoggerContext) binder.getLoggerFactory();
+		this.context = (LoggerContext) LoggerFactory.getILoggerFactory();
 		this.logger = this.context.getLogger(getClass());
 	}
 
@@ -81,7 +80,7 @@ class SpringBootJoranConfiguratorTests {
 		this.environment.setActiveProfiles("production");
 		initialize("production-profile.xml");
 		this.logger.trace("Hello");
-		assertThat(this.capturedOutput).contains("Hello");
+		assertThat(this.output).contains("Hello");
 	}
 
 	@Test
@@ -89,7 +88,7 @@ class SpringBootJoranConfiguratorTests {
 		this.environment.setActiveProfiles("production");
 		initialize("multi-profile-names.xml");
 		this.logger.trace("Hello");
-		assertThat(this.capturedOutput).contains("Hello");
+		assertThat(this.output).contains("Hello");
 	}
 
 	@Test
@@ -97,14 +96,14 @@ class SpringBootJoranConfiguratorTests {
 		this.environment.setActiveProfiles("test");
 		initialize("multi-profile-names.xml");
 		this.logger.trace("Hello");
-		assertThat(this.capturedOutput).contains("Hello");
+		assertThat(this.output).contains("Hello");
 	}
 
 	@Test
 	void profileNotActive() throws Exception {
 		initialize("production-profile.xml");
 		this.logger.trace("Hello");
-		assertThat(this.capturedOutput).doesNotContain("Hello");
+		assertThat(this.output).doesNotContain("Hello");
 	}
 
 	@Test
@@ -112,7 +111,7 @@ class SpringBootJoranConfiguratorTests {
 		this.environment.setActiveProfiles("production");
 		initialize("profile-expression.xml");
 		this.logger.trace("Hello");
-		assertThat(this.capturedOutput).contains("Hello");
+		assertThat(this.output).contains("Hello");
 	}
 
 	@Test
@@ -120,7 +119,7 @@ class SpringBootJoranConfiguratorTests {
 		this.environment.setActiveProfiles("test");
 		initialize("profile-expression.xml");
 		this.logger.trace("Hello");
-		assertThat(this.capturedOutput).contains("Hello");
+		assertThat(this.output).contains("Hello");
 	}
 
 	@Test
@@ -128,7 +127,7 @@ class SpringBootJoranConfiguratorTests {
 		this.environment.setActiveProfiles("development");
 		initialize("profile-expression.xml");
 		this.logger.trace("Hello");
-		assertThat(this.capturedOutput).doesNotContain("Hello");
+		assertThat(this.output).doesNotContain("Hello");
 	}
 
 	@Test
@@ -190,15 +189,34 @@ class SpringBootJoranConfiguratorTests {
 		assertThat(this.context.getProperty("MINE")).isEqualTo("bar");
 	}
 
+	@Test
+	void addsAotContributionToContextDuringAotProcessing() throws Exception {
+		withSystemProperty("spring.aot.processing", "true", () -> {
+			initialize("property.xml");
+			Object contribution = this.context.getObject(BeanFactoryInitializationAotContribution.class.getName());
+			assertThat(contribution).isNotNull();
+		});
+	}
+
+	private void withSystemProperty(String name, String value, Action action) throws Exception {
+		System.setProperty(name, value);
+		try {
+			action.perform();
+		}
+		finally {
+			System.clearProperty(name);
+		}
+	}
+
 	private void doTestNestedProfile(boolean expected, String... profiles) throws JoranException {
 		this.environment.setActiveProfiles(profiles);
 		initialize("nested.xml");
 		this.logger.trace("Hello");
 		if (expected) {
-			assertThat(this.capturedOutput).contains("Hello");
+			assertThat(this.output).contains("Hello");
 		}
 		else {
-			assertThat(this.capturedOutput).doesNotContain("Hello");
+			assertThat(this.output).doesNotContain("Hello");
 		}
 
 	}
@@ -206,6 +224,12 @@ class SpringBootJoranConfiguratorTests {
 	private void initialize(String config) throws JoranException {
 		this.configurator.setContext(this.context);
 		this.configurator.doConfigure(getClass().getResourceAsStream(config));
+	}
+
+	private interface Action {
+
+		void perform() throws Exception;
+
 	}
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -127,9 +127,9 @@ class StringSequenceTests {
 	@Test
 	void indexOfStringShouldReturnIndexOf() {
 		StringSequence sequence = new StringSequence("aabbaacc");
-		assertThat(sequence.indexOf("a")).isEqualTo(0);
-		assertThat(sequence.indexOf("b")).isEqualTo(2);
-		assertThat(sequence.subSequence(2).indexOf("a")).isEqualTo(2);
+		assertThat(sequence.indexOf('a')).isEqualTo(0);
+		assertThat(sequence.indexOf('b')).isEqualTo(2);
+		assertThat(sequence.subSequence(2).indexOf('a')).isEqualTo(2);
 	}
 
 	@Test
@@ -201,6 +201,20 @@ class StringSequenceTests {
 	void startsWithOffsetWhenShorterAndDoesNotStartWith() {
 		assertThat(new StringSequence("xab").startsWith("abc", 1)).isFalse();
 		assertThat(new StringSequence("xab").startsWith("c", 1)).isFalse();
+	}
+
+	@Test
+	void startsWithOnSubstringTailWhenMatch() {
+		StringSequence subSequence = new StringSequence("xabc").subSequence(1);
+		assertThat(subSequence.startsWith("abc")).isTrue();
+		assertThat(subSequence.startsWith("abcd")).isFalse();
+	}
+
+	@Test
+	void startsWithOnSubstringMiddleWhenMatch() {
+		StringSequence subSequence = new StringSequence("xabc").subSequence(1, 3);
+		assertThat(subSequence.startsWith("ab")).isTrue();
+		assertThat(subSequence.startsWith("abc")).isFalse();
 	}
 
 }

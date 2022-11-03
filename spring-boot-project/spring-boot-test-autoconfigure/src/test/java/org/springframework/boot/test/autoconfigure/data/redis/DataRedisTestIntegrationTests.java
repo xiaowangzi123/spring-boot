@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,18 +21,16 @@ import java.nio.charset.StandardCharsets;
 
 import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.util.TestPropertyValues;
-import org.springframework.boot.testsupport.testcontainers.DisabledWithoutDockerTestcontainers;
 import org.springframework.boot.testsupport.testcontainers.RedisContainer;
 import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationContextInitializer;
-import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.core.RedisOperations;
-import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
@@ -42,13 +40,14 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
  *
  * @author Jayaram Pradhan
  */
-@DisabledWithoutDockerTestcontainers
-@ContextConfiguration(initializers = DataRedisTestIntegrationTests.Initializer.class)
+@Testcontainers(disabledWithoutDocker = true)
 @DataRedisTest
 class DataRedisTestIntegrationTests {
 
+	private static final Charset CHARSET = StandardCharsets.UTF_8;
+
 	@Container
-	public static RedisContainer redis = new RedisContainer();
+	static RedisContainer redis = new RedisContainer();
 
 	@Autowired
 	private RedisOperations<Object, Object> operations;
@@ -59,7 +58,11 @@ class DataRedisTestIntegrationTests {
 	@Autowired
 	private ApplicationContext applicationContext;
 
-	private static final Charset CHARSET = StandardCharsets.UTF_8;
+	@DynamicPropertySource
+	static void redisProperties(DynamicPropertyRegistry registry) {
+		registry.add("spring.data.redis.host", redis::getHost);
+		registry.add("spring.data.redis.port", redis::getFirstMappedPort);
+	}
 
 	@Test
 	void testRepository() {
@@ -68,7 +71,7 @@ class DataRedisTestIntegrationTests {
 		assertThat(personHash.getId()).isNull();
 		PersonHash savedEntity = this.exampleRepository.save(personHash);
 		assertThat(savedEntity.getId()).isNotNull();
-		assertThat(this.operations.execute((RedisConnection connection) -> connection
+		assertThat(this.operations.execute((RedisConnection connection) -> connection.keyCommands()
 				.exists(("persons:" + savedEntity.getId()).getBytes(CHARSET)))).isTrue();
 		this.exampleRepository.deleteAll();
 	}
@@ -77,16 +80,6 @@ class DataRedisTestIntegrationTests {
 	void didNotInjectExampleService() {
 		assertThatExceptionOfType(NoSuchBeanDefinitionException.class)
 				.isThrownBy(() -> this.applicationContext.getBean(ExampleService.class));
-	}
-
-	static class Initializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
-
-		@Override
-		public void initialize(ConfigurableApplicationContext configurableApplicationContext) {
-			TestPropertyValues.of("spring.redis.port=" + redis.getFirstMappedPort())
-					.applyTo(configurableApplicationContext.getEnvironment());
-		}
-
 	}
 
 }

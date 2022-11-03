@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,11 +52,11 @@ class QualifierDefinition {
 		this.annotations = annotations;
 	}
 
-	public boolean matches(ConfigurableListableBeanFactory beanFactory, String beanName) {
+	boolean matches(ConfigurableListableBeanFactory beanFactory, String beanName) {
 		return beanFactory.isAutowireCandidate(beanName, this.descriptor);
 	}
 
-	public void applyTo(RootBeanDefinition definition) {
+	void applyTo(RootBeanDefinition definition) {
 		definition.setQualifiedElement(this.field);
 	}
 
@@ -77,9 +77,8 @@ class QualifierDefinition {
 		return this.annotations.hashCode();
 	}
 
-	public static QualifierDefinition forElement(AnnotatedElement element) {
-		if (element != null && element instanceof Field) {
-			Field field = (Field) element;
+	static QualifierDefinition forElement(AnnotatedElement element) {
+		if (element != null && element instanceof Field field) {
 			Set<Annotation> annotations = getQualifierAnnotations(field);
 			if (!annotations.isEmpty()) {
 				return new QualifierDefinition(field, annotations);

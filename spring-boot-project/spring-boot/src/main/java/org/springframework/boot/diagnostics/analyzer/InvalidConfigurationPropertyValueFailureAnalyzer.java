@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 package org.springframework.boot.diagnostics.analyzer;
 
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.springframework.boot.context.properties.source.ConfigurationPropertySources;
@@ -27,7 +26,6 @@ import org.springframework.boot.diagnostics.FailureAnalysis;
 import org.springframework.boot.diagnostics.FailureAnalyzer;
 import org.springframework.boot.origin.Origin;
 import org.springframework.boot.origin.OriginLookup;
-import org.springframework.context.EnvironmentAware;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.PropertySource;
@@ -38,14 +36,14 @@ import org.springframework.util.StringUtils;
  * {@link InvalidConfigurationPropertyValueException}.
  *
  * @author Stephane Nicoll
+ * @author Scott Frederick
  */
 class InvalidConfigurationPropertyValueFailureAnalyzer
-		extends AbstractFailureAnalyzer<InvalidConfigurationPropertyValueException> implements EnvironmentAware {
+		extends AbstractFailureAnalyzer<InvalidConfigurationPropertyValueException> {
 
-	private ConfigurableEnvironment environment;
+	private final ConfigurableEnvironment environment;
 
-	@Override
-	public void setEnvironment(Environment environment) {
+	InvalidConfigurationPropertyValueFailureAnalyzer(Environment environment) {
 		this.environment = (ConfigurableEnvironment) environment;
 	}
 
@@ -64,7 +62,7 @@ class InvalidConfigurationPropertyValueFailureAnalyzer
 
 	private List<Descriptor> getDescriptors(String propertyName) {
 		return getPropertySources().filter((source) -> source.containsProperty(propertyName))
-				.map((source) -> Descriptor.get(source, propertyName)).collect(Collectors.toList());
+				.map((source) -> Descriptor.get(source, propertyName)).toList();
 	}
 
 	private Stream<PropertySource<?>> getPropertySources() {
@@ -86,7 +84,7 @@ class InvalidConfigurationPropertyValueFailureAnalyzer
 
 	private void appendReason(StringBuilder message, InvalidConfigurationPropertyValueException cause) {
 		if (StringUtils.hasText(cause.getReason())) {
-			message.append(String.format(" Validation failed for the following " + "reason:%n%n"));
+			message.append(String.format(" Validation failed for the following reason:%n%n"));
 			message.append(cause.getReason());
 		}
 		else {
@@ -98,7 +96,7 @@ class InvalidConfigurationPropertyValueFailureAnalyzer
 		List<Descriptor> others = descriptors.subList(1, descriptors.size());
 		if (!others.isEmpty()) {
 			message.append(
-					String.format("%n%nAdditionally, this property is also set in the following " + "property %s:%n%n",
+					String.format("%n%nAdditionally, this property is also set in the following property %s:%n%n",
 							(others.size() > 1) ? "sources" : "source"));
 			for (Descriptor other : others) {
 				message.append("\t- In '").append(other.getPropertySource()).append("'");
@@ -133,15 +131,15 @@ class InvalidConfigurationPropertyValueFailureAnalyzer
 			this.origin = origin;
 		}
 
-		public String getPropertySource() {
+		String getPropertySource() {
 			return this.propertySource;
 		}
 
-		public Object getValue() {
+		Object getValue() {
 			return this.value;
 		}
 
-		public void appendOrigin(StringBuilder message) {
+		void appendOrigin(StringBuilder message) {
 			if (this.origin != null) {
 				message.append(" (originating from '").append(this.origin).append("')");
 			}

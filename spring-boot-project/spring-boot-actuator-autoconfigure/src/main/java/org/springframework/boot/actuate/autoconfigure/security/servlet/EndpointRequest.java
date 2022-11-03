@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.boot.actuate.autoconfigure.endpoint.web.WebEndpointProperties;
@@ -37,6 +37,7 @@ import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
 import org.springframework.boot.actuate.endpoint.web.PathMappedEndpoints;
 import org.springframework.boot.autoconfigure.security.servlet.RequestMatcherProvider;
 import org.springframework.boot.security.servlet.ApplicationContextRequestMatcher;
+import org.springframework.boot.web.context.WebServerApplicationContext;
 import org.springframework.core.annotation.MergedAnnotation;
 import org.springframework.core.annotation.MergedAnnotations;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
@@ -45,7 +46,6 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 import org.springframework.web.context.WebApplicationContext;
-import org.springframework.web.context.support.WebApplicationContextUtils;
 
 /**
  * Factory that can be used to create a {@link RequestMatcher} for actuator endpoint
@@ -124,8 +124,19 @@ public final class EndpointRequest {
 
 		private volatile RequestMatcher delegate;
 
+		private ManagementPortType managementPortType;
+
 		AbstractRequestMatcher() {
 			super(WebApplicationContext.class);
+		}
+
+		@Override
+		protected boolean ignoreApplicationContext(WebApplicationContext applicationContext) {
+			if (this.managementPortType == null) {
+				this.managementPortType = ManagementPortType.get(applicationContext.getEnvironment());
+			}
+			return this.managementPortType == ManagementPortType.DIFFERENT
+					&& !WebServerApplicationContext.hasServerNamespace(applicationContext, "management");
 		}
 
 		@Override
@@ -135,17 +146,6 @@ public final class EndpointRequest {
 
 		@Override
 		protected final boolean matches(HttpServletRequest request, Supplier<WebApplicationContext> context) {
-			WebApplicationContext applicationContext = WebApplicationContextUtils
-					.getRequiredWebApplicationContext(request.getServletContext());
-			if (ManagementPortType.get(applicationContext.getEnvironment()) == ManagementPortType.DIFFERENT) {
-				if (applicationContext.getParent() == null) {
-					return false;
-				}
-				String managementContextId = applicationContext.getParent().getId() + ":management";
-				if (!managementContextId.equals(applicationContext.getId())) {
-					return false;
-				}
-			}
 			return this.delegate.matches(request);
 		}
 
@@ -249,11 +249,11 @@ public final class EndpointRequest {
 		}
 
 		private EndpointId getEndpointId(Object source) {
-			if (source instanceof EndpointId) {
-				return (EndpointId) source;
+			if (source instanceof EndpointId endpointId) {
+				return endpointId;
 			}
-			if (source instanceof String) {
-				return (EndpointId.of((String) source));
+			if (source instanceof String string) {
+				return EndpointId.of(string);
 			}
 			if (source instanceof Class) {
 				return getEndpointId((Class<?>) source);
@@ -270,7 +270,7 @@ public final class EndpointRequest {
 		private List<RequestMatcher> getDelegateMatchers(RequestMatcherFactory requestMatcherFactory,
 				RequestMatcherProvider matcherProvider, Set<String> paths) {
 			return paths.stream().map((path) -> requestMatcherFactory.antPath(matcherProvider, path, "/**"))
-					.collect(Collectors.toList());
+					.collect(Collectors.toCollection(ArrayList::new));
 		}
 
 	}
@@ -299,7 +299,7 @@ public final class EndpointRequest {
 	 */
 	private static class RequestMatcherFactory {
 
-		public RequestMatcher antPath(RequestMatcherProvider matcherProvider, String... parts) {
+		RequestMatcher antPath(RequestMatcherProvider matcherProvider, String... parts) {
 			StringBuilder pattern = new StringBuilder();
 			for (String part : parts) {
 				pattern.append(part);

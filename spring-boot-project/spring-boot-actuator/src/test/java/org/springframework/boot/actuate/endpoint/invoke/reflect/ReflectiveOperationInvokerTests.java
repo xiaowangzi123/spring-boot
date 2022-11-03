@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import java.util.Collections;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import org.springframework.boot.actuate.endpoint.ApiVersion;
 import org.springframework.boot.actuate.endpoint.InvocationContext;
 import org.springframework.boot.actuate.endpoint.OperationType;
 import org.springframework.boot.actuate.endpoint.SecurityContext;
@@ -50,8 +51,8 @@ class ReflectiveOperationInvokerTests {
 	@BeforeEach
 	void setup() {
 		this.target = new Example();
-		this.operationMethod = new OperationMethod(ReflectionUtils.findMethod(Example.class, "reverse", String.class),
-				OperationType.READ);
+		this.operationMethod = new OperationMethod(ReflectionUtils.findMethod(Example.class, "reverse",
+				ApiVersion.class, SecurityContext.class, String.class), OperationType.READ);
 		this.parameterValueMapper = (parameter, value) -> (value != null) ? value.toString() : null;
 	}
 
@@ -95,8 +96,8 @@ class ReflectiveOperationInvokerTests {
 
 	@Test
 	void invokeWhenMissingNullableArgumentShouldInvoke() {
-		OperationMethod operationMethod = new OperationMethod(
-				ReflectionUtils.findMethod(Example.class, "reverseNullable", String.class), OperationType.READ);
+		OperationMethod operationMethod = new OperationMethod(ReflectionUtils.findMethod(Example.class,
+				"reverseNullable", ApiVersion.class, SecurityContext.class, String.class), OperationType.READ);
 		ReflectiveOperationInvoker invoker = new ReflectiveOperationInvoker(this.target, operationMethod,
 				this.parameterValueMapper);
 		Object result = invoker
@@ -115,11 +116,15 @@ class ReflectiveOperationInvokerTests {
 
 	static class Example {
 
-		String reverse(String name) {
+		String reverse(ApiVersion apiVersion, SecurityContext securityContext, String name) {
+			assertThat(apiVersion).isEqualTo(ApiVersion.LATEST);
+			assertThat(securityContext).isNotNull();
 			return new StringBuilder(name).reverse().toString();
 		}
 
-		String reverseNullable(@Nullable String name) {
+		String reverseNullable(ApiVersion apiVersion, SecurityContext securityContext, @Nullable String name) {
+			assertThat(apiVersion).isEqualTo(ApiVersion.LATEST);
+			assertThat(securityContext).isNotNull();
 			return new StringBuilder(String.valueOf(name)).reverse().toString();
 		}
 

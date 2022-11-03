@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,10 @@ package org.springframework.boot.actuate.autoconfigure.cloudfoundry.servlet;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import org.springframework.boot.actuate.autoconfigure.cloudfoundry.AccessLevel;
 import org.springframework.boot.actuate.autoconfigure.cloudfoundry.CloudFoundryAuthorizationException.Reason;
@@ -34,13 +35,14 @@ import org.springframework.util.Base64Utils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.verify;
+import static org.mockito.BDDMockito.then;
 
 /**
  * Tests for {@link CloudFoundrySecurityInterceptor}.
  *
  * @author Madhura Bhave
  */
+@ExtendWith(MockitoExtension.class)
 class CloudFoundrySecurityInterceptorTests {
 
 	@Mock
@@ -55,7 +57,6 @@ class CloudFoundrySecurityInterceptorTests {
 
 	@BeforeEach
 	void setup() {
-		MockitoAnnotations.initMocks(this);
 		this.interceptor = new CloudFoundrySecurityInterceptor(this.tokenValidator, this.securityService, "my-app-id");
 		this.request = new MockHttpServletRequest();
 	}
@@ -114,7 +115,7 @@ class CloudFoundrySecurityInterceptorTests {
 		given(this.securityService.getAccessLevel(accessToken, "my-app-id")).willReturn(AccessLevel.FULL);
 		SecurityResponse response = this.interceptor.preHandle(this.request, EndpointId.of("test"));
 		ArgumentCaptor<Token> tokenArgumentCaptor = ArgumentCaptor.forClass(Token.class);
-		verify(this.tokenValidator).validate(tokenArgumentCaptor.capture());
+		then(this.tokenValidator).should().validate(tokenArgumentCaptor.capture());
 		Token token = tokenArgumentCaptor.getValue();
 		assertThat(token.toString()).isEqualTo(accessToken);
 		assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
@@ -128,7 +129,7 @@ class CloudFoundrySecurityInterceptorTests {
 		given(this.securityService.getAccessLevel(accessToken, "my-app-id")).willReturn(AccessLevel.RESTRICTED);
 		SecurityResponse response = this.interceptor.preHandle(this.request, EndpointId.of("info"));
 		ArgumentCaptor<Token> tokenArgumentCaptor = ArgumentCaptor.forClass(Token.class);
-		verify(this.tokenValidator).validate(tokenArgumentCaptor.capture());
+		then(this.tokenValidator).should().validate(tokenArgumentCaptor.capture());
 		Token token = tokenArgumentCaptor.getValue();
 		assertThat(token.toString()).isEqualTo(accessToken);
 		assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,12 +24,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
-import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactory;
-import org.springframework.beans.factory.BeanFactoryAware;
 import org.springframework.beans.factory.BeanFactoryUtils;
+import org.springframework.beans.factory.InjectionPoint;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.beans.factory.UnsatisfiedDependencyException;
 import org.springframework.beans.factory.annotation.AnnotatedBeanDefinition;
@@ -56,18 +54,17 @@ import org.springframework.util.ClassUtils;
  *
  * @author Stephane Nicoll
  * @author Phillip Webb
+ * @author Scott Frederick
  */
-class NoSuchBeanDefinitionFailureAnalyzer extends AbstractInjectionFailureAnalyzer<NoSuchBeanDefinitionException>
-		implements BeanFactoryAware {
+class NoSuchBeanDefinitionFailureAnalyzer extends AbstractInjectionFailureAnalyzer<NoSuchBeanDefinitionException> {
 
-	private ConfigurableListableBeanFactory beanFactory;
+	private final ConfigurableListableBeanFactory beanFactory;
 
-	private MetadataReaderFactory metadataReaderFactory;
+	private final MetadataReaderFactory metadataReaderFactory;
 
-	private ConditionEvaluationReport report;
+	private final ConditionEvaluationReport report;
 
-	@Override
-	public void setBeanFactory(BeanFactory beanFactory) throws BeansException {
+	NoSuchBeanDefinitionFailureAnalyzer(BeanFactory beanFactory) {
 		Assert.isInstanceOf(ConfigurableListableBeanFactory.class, beanFactory);
 		this.beanFactory = (ConfigurableListableBeanFactory) beanFactory;
 		this.metadataReaderFactory = new CachingMetadataReaderFactory(this.beanFactory.getBeanClassLoader());
@@ -85,11 +82,14 @@ class NoSuchBeanDefinitionFailureAnalyzer extends AbstractInjectionFailureAnalyz
 		StringBuilder message = new StringBuilder();
 		message.append(String.format("%s required %s that could not be found.%n",
 				(description != null) ? description : "A component", getBeanDescription(cause)));
-		List<Annotation> injectionAnnotations = findInjectionAnnotations(rootFailure);
-		if (!injectionAnnotations.isEmpty()) {
-			message.append(String.format("%nThe injection point has the following annotations:%n"));
-			for (Annotation injectionAnnotation : injectionAnnotations) {
-				message.append(String.format("\t- %s%n", injectionAnnotation));
+		InjectionPoint injectionPoint = findInjectionPoint(rootFailure);
+		if (injectionPoint != null) {
+			Annotation[] injectionAnnotations = injectionPoint.getAnnotations();
+			if (injectionAnnotations.length > 0) {
+				message.append(String.format("%nThe injection point has the following annotations:%n"));
+				for (Annotation injectionAnnotation : injectionAnnotations) {
+					message.append(String.format("\t- %s%n", injectionAnnotation));
+				}
 			}
 		}
 		if (!autoConfigurationResults.isEmpty() || !userConfigurationResults.isEmpty()) {
@@ -136,13 +136,13 @@ class NoSuchBeanDefinitionFailureAnalyzer extends AbstractInjectionFailureAnalyz
 		return Arrays.stream(beanNames)
 				.map((beanName) -> new UserConfigurationResult(getFactoryMethodMetadata(beanName),
 						this.beanFactory.getBean(beanName).equals(null)))
-				.collect(Collectors.toList());
+				.toList();
 	}
 
 	private MethodMetadata getFactoryMethodMetadata(String beanName) {
 		BeanDefinition beanDefinition = this.beanFactory.getBeanDefinition(beanName);
-		if (beanDefinition instanceof AnnotatedBeanDefinition) {
-			return ((AnnotatedBeanDefinition) beanDefinition).getFactoryMethodMetadata();
+		if (beanDefinition instanceof AnnotatedBeanDefinition annotatedBeanDefinition) {
+			return annotatedBeanDefinition.getFactoryMethodMetadata();
 		}
 		return null;
 	}
@@ -182,16 +182,16 @@ class NoSuchBeanDefinitionFailureAnalyzer extends AbstractInjectionFailureAnalyz
 		}
 	}
 
-	private List<Annotation> findInjectionAnnotations(Throwable failure) {
+	private InjectionPoint findInjectionPoint(Throwable failure) {
 		UnsatisfiedDependencyException unsatisfiedDependencyException = findCause(failure,
 				UnsatisfiedDependencyException.class);
 		if (unsatisfiedDependencyException == null) {
-			return Collections.emptyList();
+			return null;
 		}
-		return Arrays.asList(unsatisfiedDependencyException.getInjectionPoint().getAnnotations());
+		return unsatisfiedDependencyException.getInjectionPoint();
 	}
 
-	private class Source {
+	private static class Source {
 
 		private final String className;
 
@@ -203,11 +203,11 @@ class NoSuchBeanDefinitionFailureAnalyzer extends AbstractInjectionFailureAnalyz
 			this.methodName = (tokens.length != 2) ? null : tokens[1];
 		}
 
-		public String getClassName() {
+		String getClassName() {
 			return this.className;
 		}
 
-		public String getMethodName() {
+		String getMethodName() {
 			return this.methodName;
 		}
 
@@ -286,7 +286,7 @@ class NoSuchBeanDefinitionFailureAnalyzer extends AbstractInjectionFailureAnalyz
 
 	}
 
-	private class AutoConfigurationResult {
+	private static class AutoConfigurationResult {
 
 		private final MethodMetadata methodMetadata;
 
